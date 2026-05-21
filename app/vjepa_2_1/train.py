@@ -209,6 +209,32 @@ def main(args, resume_preempt=False):
     logger.info(f"Initialized (rank/world-size) {rank}/{world_size}")
     img_world_size = 0
 
+    # -- optional W&B logging (rank 0 only)
+    cfgs_wandb = args.get("wandb")
+    wandb_run = None
+    wandb_log_freq = log_freq
+    if cfgs_wandb and cfgs_wandb.get("enable", False) and rank == 0:
+        try:
+            import wandb
+
+            wandb_log_freq = cfgs_wandb.get("log_freq", log_freq)
+            wandb_run = wandb.init(
+                project=cfgs_wandb.get("project", "vjepa2"),
+                entity=cfgs_wandb.get("entity"),
+                name=cfgs_wandb.get("name"),
+                group=cfgs_wandb.get("group"),
+                job_type=cfgs_wandb.get("job_type"),
+                tags=cfgs_wandb.get("tags"),
+                notes=cfgs_wandb.get("notes"),
+                mode=cfgs_wandb.get("mode", "online"),
+                dir=cfgs_wandb.get("dir", folder),
+                config=args,
+                resume=cfgs_wandb.get("resume"),
+                id=cfgs_wandb.get("id"),
+            )
+        except Exception as exc:
+            logger.warning("W&B init failed: %s", exc)
+
     # make adjustments to batch size for image data
     model_fpcs = dataset_fpcs
     model_cfgs_mask = cfgs_mask
@@ -818,6 +844,31 @@ def main(args, resume_preempt=False):
                         )
                     )
 
+                if wandb_run is not None and (
+                    (itr % wandb_log_freq == 0)
+                    or (itr == ipe - 1)
+                    or np.isnan(loss)
+                    or np.isinf(loss)
+                ):
+                    metrics = {
+                        "train/loss": float(loss),
+                        "train/loss_avg": float(loss_meter.avg),
+                        "train/epoch": int(epoch + 1),
+                        "train/iter": int(itr),
+                        "opt/lr": float(_new_lr),
+                        "opt/wd": float(_new_wd),
+                        "perf/iter_ms": float(iter_time_meter.avg),
+                        "perf/gpu_ms": float(gpu_time_meter.avg),
+                        "perf/data_ms": float(data_elapsed_time_meter.avg),
+                    }
+                    if torch.cuda.is_available():
+                        metrics["perf/max_mem_mb"] = float(
+                            torch.cuda.max_memory_allocated() / 1024.0**2
+                        )
+                    for k in mask_meters:
+                        metrics[f"mask/{k}"] = float(mask_meters[k].avg)
+                    wandb_run.log(metrics, step=epoch * ipe + itr)
+
             log_stats()
             assert not np.isnan(loss), "loss is nan"
 
@@ -829,3 +880,6 @@ def main(args, resume_preempt=False):
                 save_every_file = f"e{epoch}.pth.tar"
                 save_every_path = os.path.join(folder, save_every_file)
                 save_checkpoint(epoch + 1, save_every_path)
+
+    if wandb_run is not None:
+        wandb_run.finish()

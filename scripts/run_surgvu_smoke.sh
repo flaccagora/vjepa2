@@ -2,8 +2,8 @@
 set -euo pipefail
 
 python scripts/prepare_surgvu.py \
-  --sample-zip data/SURGVU25_cat_2_sample_set_public.zip \
-  --labels-zip data/surgvu24_labels_updated_v2.zip \
+  --sample-zip  /leonardo_scratch/fast/IscrC_FLAC/SurgVU_data/SURGVU25_cat_2_sample_set_public.zip \
+  --labels-zip /leonardo_scratch/fast/IscrC_FLAC/SurgVU_data/surgvu24_labels_updated_v2.zip \
   --out-dir data/surgvu_smoke \
   --limit 4 \
   --val-fraction 0.25

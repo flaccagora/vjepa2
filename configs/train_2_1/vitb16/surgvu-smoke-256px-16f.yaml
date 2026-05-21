@@ -106,7 +106,7 @@ optimization:
   ema:
   - 0.99925
   - 0.99925
-  epochs: 1
+  epochs: 5
   final_lr: 1.0e-06
   final_weight_decay: 0.04
   ipe: 1
@@ -115,3 +115,10 @@ optimization:
   start_lr: 1.0e-06
   warmup: 0
   weight_decay: 0.04
+wandb:
+  enable: true
+  project: vjepa2
+  entity: smoke
+  name: run-001
+  mode: offline
+  log_freq: 1

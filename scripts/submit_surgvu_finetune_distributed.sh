@@ -3,8 +3,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-source /home/matteo/miniconda3/etc/profile.d/conda.sh
-conda activate vjepa2-312
+source .venv/bin/activate
 
 CONFIG="${CONFIG:-configs/train_2_1/vitb16/surgvu-finetune-384px-16f-slurm.yaml}"
 ACCOUNT="${ACCOUNT:-IscrC_FLAC}"
