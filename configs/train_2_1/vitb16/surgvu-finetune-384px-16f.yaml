@@ -3,14 +3,14 @@ nodes: 1
 tasks_per_node: 1
 cpus_per_task: 8
 mem_per_gpu: 24G
-folder: output/surgvu/vjepa2_1_vitb_384px_16f
+folder: output/surgvu_full/vjepa2_1_vitb_384px_16f
 data:
   dataset_type: VideoDataset
   datasets:
-  - data/surgvu/manifest_train.csv
+  - data/surgvu_full/manifest_train.csv
   datasets_weights:
   - 1.0
-  batch_size: 1
+  batch_size: 8
   crop_size: 384
   patch_size: 16
   dataset_fpcs:
@@ -121,6 +121,6 @@ wandb:
   enable: true
   project: vjepa2
   name: run-001
-  mode: online
+  mode: offline
   log_freq: 1
   strict: true
