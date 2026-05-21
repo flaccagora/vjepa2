@@ -48,8 +48,10 @@ Validated environment:
   - Writes `metadata.csv` and `summary.json`.
 - `scripts/check_surgvu_manifest.py`
   - Opens a few manifest videos with `decord` and reports frames, FPS, and duration.
+- `scripts/cache_vjepa_models.py`
+  - Caches public V-JEPA checkpoints on the submit/login node and can write a resolved config with absolute paths.
 - `scripts/download_vjepa2_1_vitb.sh`
-  - Downloads the smallest public V-JEPA2.1 checkpoint:
+  - Thin wrapper that caches the smallest public V-JEPA2.1 checkpoint:
     `checkpoints/vjepa2_1_vitb_dist_vitG_384.pt`.
 - `scripts/run_surgvu_smoke.sh`
   - Prepares the public sample split, validates decoding, and runs the smoke training config.
@@ -128,7 +130,8 @@ python scripts/check_surgvu_manifest.py data/surgvu/manifest_train.csv --limit 4
 The smallest V-JEPA2.1 public checkpoint is ViT-B/16:
 
 ```bash
-scripts/download_vjepa2_1_vitb.sh checkpoints
+conda activate vjepa2-312
+python scripts/cache_vjepa_models.py --cache-dir checkpoints --model vjepa2_1_vitb
 ```
 
 Downloaded file:
@@ -137,7 +140,23 @@ Downloaded file:
 checkpoints/vjepa2_1_vitb_dist_vitG_384.pt
 ```
 
-The fine-tuning configs point to this path.
+The cache script also supports the other public V-JEPA model filenames used by this repo:
+
+```bash
+python scripts/cache_vjepa_models.py --cache-dir checkpoints --model all
+```
+
+For training configs, prefer config-aware caching:
+
+```bash
+python scripts/cache_vjepa_models.py \
+  --config configs/train_2_1/vitb16/surgvu-finetune-384px-16f-slurm.yaml \
+  --cache-dir checkpoints \
+  --write-resolved-config output/surgvu_slurm/resolved_config.yaml
+```
+
+This runs before SLURM submission on the internet-enabled submit/login node. It downloads the checkpoint if missing and
+writes a resolved config where `folder`, `data.datasets`, and `meta.read_checkpoint` are absolute filesystem paths.
 
 ## Training
 
@@ -179,6 +198,9 @@ python -m app.main \
 ## SLURM Distributed Training
 
 Distributed training uses the repo's existing submitit entry point, `app.main_distributed`.
+Compute nodes do not need internet access. The wrapper first caches the checkpoint and writes a resolved config on the
+submit/login node, then submits that resolved config through `app.main_distributed`.
+
 Submit with:
 
 ```bash
@@ -189,7 +211,7 @@ Equivalent explicit command:
 
 ```bash
 python -m app.main_distributed \
-  --fname configs/train_2_1/vitb16/surgvu-finetune-384px-16f-slurm.yaml \
+  --fname output/surgvu_slurm/resolved_config.yaml \
   --account IscrC_FLAC \
   --partition boost_usr_prod \
   --time 30
@@ -229,6 +251,9 @@ Training output goes to:
 ```text
 output/surgvu_slurm/vjepa2_1_vitb_384px_16f
 ```
+
+The distributed submitter snapshots code into the run folder. `app/main_distributed.py` now excludes local `data/`,
+`checkpoints/`, and `output/` directories from that code snapshot; the resolved config uses absolute paths instead.
 
 ## Tested Smoke Run
 

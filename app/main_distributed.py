@@ -154,6 +154,9 @@ def launch_app_with_parsed_args(
         "./evals/ava/alphaction/data",
         "./demos",
         "./traces",
+        "./checkpoints",
+        "./data",
+        "./output",
     ]
     copy_code_folder(code_folder, ignore_patterns, ignore_paths)
     os.chdir(code_folder)
