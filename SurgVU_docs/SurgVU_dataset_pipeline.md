@@ -450,3 +450,22 @@ python scripts/check_surgvu_manifest.py data/surgvu/manifest_train.csv --limit 8
 cat data/surgvu/summary.json
 ```
 
+## Long-Video Skip Warning
+
+If cluster training prints a warning like this:
+
+```text
+skipping long video of size _fsize=... (bytes)
+```
+
+it comes from `src/datasets/video_dataset.py`. The upstream loader has a default `filter_long_videos` limit of `1e9` bytes, about 1 GB. Full SurgVU clips can be larger than that, so the loader may skip valid videos.
+
+Do not manually edit individual manifest entries unless the video path is wrong or the file is corrupt. For full SurgVU training, set the data-loader threshold in YAML:
+
+```yaml
+data:
+  filter_long_videos: null
+  filter_short_videos: false
+```
+
+In this SurgVU setup, `filter_long_videos: null` is interpreted as an effectively disabled size filter by `app/vjepa_2_1/train.py`.

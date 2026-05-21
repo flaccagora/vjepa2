@@ -135,6 +135,10 @@ def main(args, resume_preempt=False):
     grid_size = crop_size // patch_size
     pin_mem = cfgs_data.get("pin_mem", False)
     num_workers = cfgs_data.get("num_workers", 1)
+    filter_short_videos = cfgs_data.get("filter_short_videos", False)
+    filter_long_videos = cfgs_data.get("filter_long_videos", int(1e9))
+    if filter_long_videos is None:
+        filter_long_videos = int(1e18)
 
     # -- IMG DATA
     cfgs_img_data = args.get("img_data")
@@ -430,6 +434,8 @@ def main(args, resume_preempt=False):
         collator=mask_collator,
         num_workers=num_workers,
         pin_mem=pin_mem,
+        filter_short_videos=filter_short_videos,
+        filter_long_videos=filter_long_videos,
         log_dir=None,
     )
     try:

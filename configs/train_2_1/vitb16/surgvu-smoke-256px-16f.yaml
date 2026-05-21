@@ -17,6 +17,8 @@ data:
   - 16
   tubelet_size: 2
   fps: 4
+  filter_long_videos: null
+  filter_short_videos: false
   num_workers: 2
   pin_mem: true
 data_aug:

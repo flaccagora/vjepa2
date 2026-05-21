@@ -86,6 +86,8 @@ The paper's cooldown uses longer clips and higher resolution to improve downstre
 | `dataset_fpcs` | Frames per clip sampled from each dataset. One value per dataset. | Stage 1 `[16]`; Stage 2 `[64]` |
 | `tubelet_size` | Number of frames grouped into each temporal patch token. | `2` |
 | `fps` | Temporal sampling rate used by the video loader. | `4`, matching the paper |
+| `filter_long_videos` | Maximum source video file size in bytes. The upstream default is `1e9`, which can skip full SurgVU clips larger than about 1 GB. `null` is handled by the SurgVU training path as "effectively disabled". | `null` for full SurgVU |
+| `filter_short_videos` | If `true`, skips videos that cannot provide enough frames for the requested clip length. | `false` |
 | `num_workers` | DataLoader workers per process. | `8` on the SLURM node |
 | `pin_mem` | Enables pinned host memory for GPU transfer. | `true` for GPU training |
 | `persistent_workers` | Keeps DataLoader workers alive between epochs. Present in stock configs, but `app/vjepa_2_1/train.py` currently does not read/pass this key. | Omit unless the training code is extended |
@@ -419,4 +421,3 @@ optimization:
 ```
 
 If 64-frame cooldown does not fit in memory, use `dataset_fpcs: [32]` before reducing crop size. If it is still unstable, stay with the Stage 1 16-frame model and proceed to downstream linear probing/evaluation.
-
