@@ -118,7 +118,7 @@ optimization:
 wandb:
   enable: true
   project: vjepa2
-  entity: smoke
   name: run-001
-  mode: offline
+  mode: online
   log_freq: 1
+  strict: true

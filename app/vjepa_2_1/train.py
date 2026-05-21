@@ -19,6 +19,7 @@ import time
 
 import numpy as np
 import torch
+import torch.distributed as dist
 import torch.multiprocessing as mp
 import torch.nn.functional as F
 from app.vjepa_2_1.models.utils.masks_dist import compute_mask_distance
@@ -214,6 +215,7 @@ def main(args, resume_preempt=False):
     wandb_run = None
     wandb_log_freq = log_freq
     if cfgs_wandb and cfgs_wandb.get("enable", False) and rank == 0:
+        wandb_strict = cfgs_wandb.get("strict", False)
         try:
             import wandb
 
@@ -233,8 +235,13 @@ def main(args, resume_preempt=False):
                 id=cfgs_wandb.get("id"),
             )
         except Exception as exc:
-            logger.warning("W&B init failed: %s", exc)
-
+            logger.warning(
+                "W&B init failed: %s. Continuing without W&B logging. "
+                "Set wandb.strict: true to fail on W&B errors.",
+                exc,
+            )
+            if wandb_strict:
+                raise
     # make adjustments to batch size for image data
     model_fpcs = dataset_fpcs
     model_cfgs_mask = cfgs_mask
@@ -458,11 +465,14 @@ def main(args, resume_preempt=False):
         betas=betas,
         eps=eps,
     )
-    encoder = DistributedDataParallel(encoder, static_graph=True)
-    predictor = DistributedDataParallel(
-        predictor, static_graph=False, find_unused_parameters=True
-    )
-    target_encoder = DistributedDataParallel(target_encoder)
+    if dist.is_available() and dist.is_initialized():
+        encoder = DistributedDataParallel(encoder, static_graph=True)
+        predictor = DistributedDataParallel(
+            predictor, static_graph=False, find_unused_parameters=True
+        )
+        target_encoder = DistributedDataParallel(target_encoder)
+    else:
+        logger.info("Distributed process group is not initialized; running without DDP wrappers")
     for p in target_encoder.parameters():
         p.requires_grad = False
 

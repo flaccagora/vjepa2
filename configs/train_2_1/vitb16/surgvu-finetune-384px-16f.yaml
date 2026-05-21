@@ -115,3 +115,10 @@ optimization:
   start_lr: 1.0e-06
   warmup: 2
   weight_decay: 0.04
+wandb:
+  enable: true
+  project: vjepa2
+  name: run-001
+  mode: online
+  log_freq: 1
+  strict: true
