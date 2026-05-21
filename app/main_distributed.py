@@ -133,6 +133,7 @@ def launch_app_with_parsed_args(
     nodes=1,
     tasks_per_node=1,
     cpus_per_task=12,
+    exclusive=False,
     exclude_nodes=None,
 ):
     args_for_pretrain = update_folder_with_timestamp(args_for_pretrain)
@@ -190,6 +191,7 @@ def launch_app_with_parsed_args(
         tasks_per_node=tasks_per_node,
         cpus_per_task=cpus_per_task,
         gpus_per_node=tasks_per_node,
+        slurm_exclusive=exclusive,
     )
 
     if exclude_nodes is not None:
@@ -241,6 +243,7 @@ def launch():
             tasks_per_node = int(_params.get("tasks_per_node"))
             cpus_per_task = int(_params.get("cpus_per_task", 32))
             mem_per_gpu = _params.get("mem_per_gpu", "210G")
+            exclusive = bool(_params.get("exclusive", False))
             configs += [_params]
     logger.info(f"Loaded {len(configs)} config files")
     logger.info(f"Running all jobs with {nodes=} / {tasks_per_node=}")
@@ -256,6 +259,7 @@ def launch():
         qos=args.qos,
         mem_per_gpu=mem_per_gpu,
         cpus_per_task=cpus_per_task,
+        exclusive=exclusive,
         timeout=args.time,
         nodes=nodes,
         tasks_per_node=tasks_per_node,

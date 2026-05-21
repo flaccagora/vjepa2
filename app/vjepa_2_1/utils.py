@@ -120,54 +120,75 @@ def load_checkpoint(
 
     epoch = 0
     if not is_anneal:
-        epoch = checkpoint["epoch"]
+        epoch = checkpoint.get("epoch", 0)
 
-    pretrained_dict = checkpoint["encoder"]
-    for k, v in encoder.state_dict().items():
-        if k not in pretrained_dict:
-            logger.info(f'key "{k}" could not be found in loaded state dict')
-        elif pretrained_dict[k].shape != v.shape:
-            logger.info(
-                f'key "{k}" is of different shape in model and loaded state dict'
-            )
-            pretrained_dict[k] = v
-    msg = encoder.load_state_dict(pretrained_dict, strict=False)
-    logger.info(f"loaded pretrained encoder from epoch {epoch} with msg: {msg}")
+    def _strip_prefixes(key):
+        for prefix in ("module.", "backbone."):
+            if key.startswith(prefix):
+                key = key[len(prefix) :]
+        if key.startswith("module.backbone."):
+            key = key[len("module.backbone.") :]
+        return key
 
-    pretrained_dict = checkpoint["predictor"]
-    for k, v in predictor.state_dict().items():
-        if k not in pretrained_dict:
-            logger.info(f'key "{k}" could not be found in loaded state dict')
-        elif pretrained_dict[k].shape != v.shape:
-            logger.info(
-                f'key "{k}" is of different shape in model and loaded state dict'
-            )
-            pretrained_dict[k] = v
-    msg = predictor.load_state_dict(pretrained_dict, strict=False)
-    logger.info(f"loaded pretrained predictor from epoch {epoch} with msg: {msg}")
+    def _select_state_dict(*keys):
+        for key in keys:
+            if key in checkpoint:
+                logger.info(f'using checkpoint key "{key}"')
+                return checkpoint[key]
+        return None
+
+    def _load_state(model, pretrained_dict, label):
+        if pretrained_dict is None:
+            logger.info(f"No {label} state found in checkpoint; leaving initialized weights")
+            return
+        normalized_pretrained = {_strip_prefixes(k): v for k, v in pretrained_dict.items()}
+        compatible_state = {}
+        missing_keys = 0
+        shape_mismatches = 0
+        for k, v in model.state_dict().items():
+            candidate = pretrained_dict.get(k)
+            if candidate is None:
+                candidate = normalized_pretrained.get(_strip_prefixes(k))
+            if candidate is None:
+                compatible_state[k] = v
+                missing_keys += 1
+            elif candidate.shape != v.shape:
+                compatible_state[k] = v
+                shape_mismatches += 1
+            else:
+                compatible_state[k] = candidate
+        if missing_keys:
+            logger.info(f"{label}: {missing_keys} keys were missing in loaded state dict")
+        if shape_mismatches:
+            logger.info(f"{label}: {shape_mismatches} keys had incompatible shapes and were reinitialized")
+        msg = model.load_state_dict(compatible_state, strict=False)
+        logger.info(f"loaded pretrained {label} from epoch {epoch} with msg: {msg}")
+
+    encoder_state = _select_state_dict("encoder", "ema_encoder", "target_encoder")
+    _load_state(encoder, encoder_state, "encoder")
+
+    predictor_state = _select_state_dict("predictor")
+    _load_state(predictor, predictor_state, "predictor")
 
     if target_encoder is not None:
-        pretrained_dict = checkpoint["target_encoder"]
-        for k, v in target_encoder.state_dict().items():
-            if k not in pretrained_dict:
-                logger.info(f'key "{k}" could not be found in loaded state dict')
-            elif pretrained_dict[k].shape != v.shape:
-                logger.info(
-                    f'key "{k}" is of different shape in model and loaded state dict'
-                )
-                pretrained_dict[k] = v
-        msg = target_encoder.load_state_dict(pretrained_dict, strict=False)
-        logger.info(
-            f"loaded pretrained target encoder from epoch {epoch} with msg: {msg}"
-        )
+        target_state = _select_state_dict("target_encoder", "ema_encoder", "encoder")
+        _load_state(target_encoder, target_state, "target encoder")
 
-    try:
-        opt.load_state_dict(checkpoint["opt"])
-    except ValueError:
-        print("[warn] Optimizer groups mismatch; reinitializing optimizer.")
-    if scaler is not None:
+    loaded_optimizer = False
+    if "opt" in checkpoint:
+        try:
+            opt.load_state_dict(checkpoint["opt"])
+            logger.info(f"loaded optimizer from epoch {epoch}")
+            loaded_optimizer = True
+        except ValueError:
+            logger.info("Optimizer groups mismatch; reinitializing optimizer.")
+    else:
+        logger.info("No optimizer state found in checkpoint; starting a fresh optimizer")
+    if scaler is not None and checkpoint.get("scaler") is not None:
         scaler.load_state_dict(checkpoint["scaler"])
-    logger.info(f"loaded optimizers from epoch {epoch}")
+    if not loaded_optimizer:
+        epoch = 0
+        logger.info("Starting fine-tuning from epoch 0 with a fresh optimizer schedule")
     logger.info(f"read-path: {r_path}")
     del checkpoint
 

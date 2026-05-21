@@ -71,7 +71,7 @@ def compute_mask_distance(masks_pred, masks_enc, grid_size, offset_context_loss)
                     dmin = dmin * (1.0 / coeff)
                 dmin = dmin**0.5  # We want that it decreases less agressive
                 enc_distances.append(dmin)
-            enc_distances = torch.stack(enc_distances, dim=-1).squeeze()  # (BS, N_enc)
+            enc_distances = torch.stack(enc_distances, dim=-1).squeeze(1)  # (BS, N_enc)
             row_distances.append(enc_distances)
         distances.append(row_distances)
     return distances

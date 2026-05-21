@@ -23,6 +23,7 @@ import torch.multiprocessing as mp
 import torch.nn.functional as F
 from app.vjepa_2_1.models.utils.masks_dist import compute_mask_distance
 from app.vjepa_2_1.models.utils.modules import Lambda_LinearWarmupHold
+from app.vjepa_2_1.models.vision_transformer import VIT_EMBED_DIMS
 from app.vjepa_2_1.transforms import make_transforms
 from app.vjepa_2_1.utils import (
     init_opt,
@@ -114,14 +115,9 @@ def main(args, resume_preempt=False):
     normalize_predictor = cfgs_model.get("normalize_predictor", False)
     modality_embedding = cfgs_model.get("modality_embedding", False)
     levels_predictor = cfgs_model.get("levels_predictor", 4)
-    if model_name == "vit_large":
-        embed_dim_encoder = 1024
-    elif model_name == "vit_giant_xformers":
-        embed_dim_encoder = 1408
-    elif model_name == "vit_gigantic_xformers":
-        embed_dim_encoder = 1664
-    else:
-        print("Model name not recognized :(")
+    embed_dim_encoder = VIT_EMBED_DIMS.get(model_name.replace("_xformers", ""))
+    if embed_dim_encoder is None:
+        raise ValueError(f"Model name not recognized: {model_name}")
 
     # -- DATA
     cfgs_data = args.get("data")
