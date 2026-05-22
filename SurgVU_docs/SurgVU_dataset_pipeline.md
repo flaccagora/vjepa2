@@ -469,3 +469,154 @@ data:
 ```
 
 In this SurgVU setup, `filter_long_videos: null` is interpreted as an effectively disabled size filter by `app/vjepa_2_1/train.py`.
+
+## Visualizing Dataloader Frames
+
+Use `scripts/visualize_surgvu_dataloader.py` to inspect the exact tensors produced by the training dataloader. It builds the same `VideoDataset`, transform stack, temporal sampler, and `MaskCollator` path used by `app/vjepa_2_1/train.py`, then saves denormalized contact sheets and a `manifest.json` with sampled source frame indices and mask shapes.
+
+Smoke preview:
+
+```bash
+conda activate vjepa2-312
+
+python scripts/visualize_surgvu_dataloader.py \
+  --config configs/train_2_1/vitb16/surgvu-smoke-256px-16f.yaml \
+  --out-dir output/surgvu_dataloader_preview_smoke \
+  --num-batches 1 \
+  --max-samples 2 \
+  --num-workers 0 \
+  --disable-augment
+```
+
+Full training preview:
+
+```bash
+python scripts/visualize_surgvu_dataloader.py \
+  --config configs/train_2_1/vitb16/surgvu-finetune-384px-16f-slurm.yaml \
+  --out-dir output/surgvu_dataloader_preview_full \
+  --num-batches 2 \
+  --max-samples 4 \
+  --num-workers 0
+```
+
+Use `--disable-augment` when you want an easier sanity check of video identity and temporal order. Omit it when you want to see the actual randomized training augmentations.
+
+## Offline Geometry Preprocessing
+
+Dedicated guide: `SurgVU_docs/SurgVU_preprocessing.md`.
+
+For SurgVU videos, it is better to remove static black margins and the bottom text/UI strip before VJEPA training rather than relying on random crop augmentation to hide them. The offline approach has three advantages:
+
+- The cleanup is deterministic and reproducible.
+- Training does not repeatedly spend dataloader time on the same geometry cleanup.
+- The training `random_resized_crop` can focus on data augmentation after irrelevant borders/overlays are gone.
+
+Use:
+
+```text
+scripts/preprocess_surgvu_videos.py
+```
+
+Debug one video first:
+
+```bash
+conda activate vjepa2-312
+
+python scripts/preprocess_surgvu_videos.py \
+  --manifest data/surgvu/manifest_train.csv \
+  --out-dir output/surgvu_preprocess_debug \
+  --limit 1 \
+  --max-output-frames 16 \
+  --preview-count 1 \
+  --sample-frames 4 \
+  --overwrite
+```
+
+Full preprocessing:
+
+```bash
+python scripts/preprocess_surgvu_videos.py \
+  --manifest data/surgvu/manifest_train.csv \
+  --out-dir data/surgvu_clean_train \
+  --preview-count 8 \
+  --sample-frames 24 \
+  --top-crop-ratio 0.0 \
+  --bottom-crop-ratio 0.10 \
+  --backend auto \
+  --workers 4 \
+  --ffmpeg-threads 4 \
+  --quality-mode source \
+  --bitrate-scale 1.0 \
+  --ffmpeg-preset veryfast \
+  --remove-black-sections \
+  --save-black-sections \
+  --black-min-duration 1.0 \
+  --output-fps 4
+```
+Questo potrebbe essere quello prefinale
+```bash
+python scripts/preprocess_surgvu_videos.py \
+    --manifest data/surgvu/manifest_train.csv \
+    --out-dir data/surgvu_clean_train \
+    --limit 1 \
+    --preview-count 3 \
+    --sample-frames 24 \
+    --top-crop-pixels 72 \
+    --bottom-crop-pixels 72 \
+    --backend ffmpeg \
+    --ffmpeg-encoder h264_nvenc \
+    --nvenc-preset p4 \
+    --nvenc-gpus 0,1,2,3 \
+    --quality-mode source \
+    --workers 4 \
+    --ffmpeg-threads 1  --remove-black-sections \
+    --black-min-duration 1.0
+```
+This writes:
+
+```text
+data/surgvu_clean_train/
+  manifest_train.csv
+  preprocess_metadata.json
+  previews/
+  videos/
+```
+
+Then point the training YAML at the cleaned manifest:
+
+```yaml
+data:
+  datasets:
+  - data/surgvu_clean_train/manifest_train.csv
+```
+
+The main controls are:
+
+| Option | Meaning | Starting value |
+| --- | --- | --- |
+| `--top-crop-ratio` | Fraction of original frame height removed from the top before margin detection. | `0.0` |
+| `--top-crop-pixels` | Exact top pixels to remove; overrides ratio. | Use after measuring any top UI/header height |
+| `--bottom-crop-ratio` | Fraction of original frame height removed from the bottom before margin detection. | `0.10` |
+| `--bottom-crop-pixels` | Exact bottom pixels to remove; overrides ratio. | Use after measuring overlay height |
+| `--black-threshold` | Luminance threshold for detecting non-black content. | `12` |
+| `--min-content-fraction` | Row/column non-black fraction required to count as content. | `0.01` |
+| `--padding` | Pixels added around detected content crop. | `4` |
+| `--sample-frames` | Number of frames sampled per video to detect the static crop. | `24` |
+| `--backend` | Video writer. `auto` uses ffmpeg when available and falls back to OpenCV. | `auto` |
+| `--workers` | Number of videos processed in parallel. | `4` on a 32 CPU node |
+| `--ffmpeg-threads` | Threads per ffmpeg process. | `4` with `--workers 4` |
+| `--ffmpeg-encoder` | ffmpeg encoder. `libx264` is the CPU default; `h264_nvenc` uses NVIDIA GPU encoding when available. | `libx264` |
+| `--nvenc-preset` | NVENC speed/quality preset when using an `*_nvenc` encoder. | `p4` |
+| `--nvenc-gpus` | Comma-separated GPU indices for NVENC, assigned by manifest index modulo the list. | `0,1,2,3` on a 4-GPU node |
+| `--quality-mode` | Encoding quality mode. `source` matches the original video's bits-per-pixel-frame after crop/FPS changes; `crf` uses `--crf`; `lossless` uses `-qp 0` and can be much larger. | `source` |
+| `--bitrate-scale` | Multiplier applied to the source-matched bitrate. | `1.0` |
+| `--ffmpeg-preset` | libx264 speed preset. Faster presets reduce preprocessing time; bitrate still controls output size in source mode. | `veryfast` |
+| `--remove-black-sections` | Detect and cut full-screen black intervals using ffmpeg `blackdetect`. | Enable for full SurgVU preprocessing |
+| `--save-black-sections` | Save detected full-screen black intervals as separate clips. | Enable when auditing black gaps |
+| `--black-sections-dir` | Directory for saved black-section clips. | `<out-dir>/black_sections` |
+| `--black-section-save-mode` | Save mode for black-section clips. `copy` is fastest; `encode` gives exact trim boundaries. | `copy` |
+| `--black-min-duration` | Minimum black interval duration to cut. | `1.0` |
+| `--output-fps` | Output FPS for cleaned videos. Set to the training FPS only if you intentionally want preprocessing to remove frames the loader would otherwise skip. | `4` for the current recipe; omit to keep source FPS |
+| `--crf` | ffmpeg quality for `--quality-mode crf`; lower is higher quality/larger files. | `16` |
+
+After preprocessing, run `scripts/visualize_surgvu_dataloader.py` against the cleaned manifest to verify that random training crops are now operating on cleaned surgical content.
