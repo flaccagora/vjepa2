@@ -1,0 +1,1006 @@
+#!/usr/bin/env python3
+"""Preprocess SurgVU videos before VJEPA training.
+
+The script reads a VJEPA-style manifest, removes static black margins and a
+bottom overlay region from each video, writes cleaned videos, and emits a new
+manifest with the same labels.
+"""
+
+from __future__ import annotations
+
+import argparse
+import concurrent.futures
+import csv
+import json
+import logging
+import os
+import re
+import shutil
+import subprocess
+import time
+from contextlib import contextmanager
+from pathlib import Path
+
+from tqdm import tqdm
+
+import cv2
+import numpy as np
+from PIL import Image, ImageDraw
+
+logger = logging.getLogger("surgvu_preprocess")
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--manifest", type=Path, required=True, help="Input VJEPA manifest.")
+    parser.add_argument("--out-dir", type=Path, required=True, help="Output directory for cleaned videos and metadata.")
+    parser.add_argument("--output-manifest", type=Path, help="Output manifest path. Defaults to <out-dir>/<manifest-name>.")
+    parser.add_argument("--sample-frames", type=int, default=24, help="Frames sampled per video for black-margin detection.")
+    parser.add_argument("--black-threshold", type=int, default=12, help="Pixel luminance threshold for non-black content.")
+    parser.add_argument(
+        "--min-content-fraction",
+        type=float,
+        default=0.01,
+        help="Minimum non-black fraction for a row/column to be considered content.",
+    )
+    parser.add_argument(
+        "--bottom-crop-ratio",
+        type=float,
+        default=0.06,
+        help="Fraction of original frame height removed from the bottom before margin detection.",
+    )
+    parser.add_argument("--bottom-crop-pixels", type=int, help="Overrides --bottom-crop-ratio when set.")
+    parser.add_argument(
+        "--top-crop-ratio",
+        type=float,
+        default=0.06,
+        help="Fraction of original frame height removed from the top before margin detection.",
+    )
+    parser.add_argument("--top-crop-pixels", type=int, help="Overrides --top-crop-ratio when set.")
+    parser.add_argument("--padding", type=int, default=4, help="Pixels added around detected content crop.")
+    parser.add_argument("--limit", type=int, help="Process only the first N manifest rows.")
+    parser.add_argument("--overwrite", action="store_true", default=True, help="Overwrite cleaned videos if they already exist.")
+    parser.add_argument(
+        "--max-output-frames",
+        type=int,
+        help="Debug option: write only the first N frames of each output video.",
+    )
+    parser.add_argument("--preview-count", type=int, default=0, help="Write before/after contact sheets for first N videos.")
+    parser.add_argument("--preview-frames", type=int, default=8, help="Frames per preview sheet.")
+    parser.add_argument("--codec", default="mp4v", help="OpenCV fourcc codec for output mp4 files.")
+    parser.add_argument(
+        "--backend",
+        choices=("auto", "ffmpeg", "opencv"),
+        default="ffmpeg",
+        help="Video writing backend. 'auto' uses ffmpeg when available, otherwise OpenCV.",
+    )
+    parser.add_argument("--workers", type=int, default=1, help="Videos to preprocess in parallel.")
+    parser.add_argument("--ffmpeg-bin", default="ffmpeg", help="ffmpeg executable.")
+    parser.add_argument("--ffprobe-bin", default="ffprobe", help="ffprobe executable.")
+    parser.add_argument(
+        "--ffmpeg-encoder",
+        choices=("libx264", "h264_nvenc", "hevc_nvenc", "av1_nvenc"),
+        default="libx264",
+        help="ffmpeg video encoder. Use h264_nvenc for faster GPU encoding when available.",
+    )
+    parser.add_argument("--ffmpeg-preset", default="veryfast", help="libx264 preset used by ffmpeg backend.")
+    parser.add_argument("--nvenc-preset", default="p4", help="NVENC preset used when --ffmpeg-encoder is *_nvenc.")
+    parser.add_argument(
+        "--nvenc-gpus",
+        default="",
+        help="Comma-separated NVENC GPU indices, e.g. 0,1,2,3. Videos are assigned by manifest index modulo this list.",
+    )
+    parser.add_argument(
+        "--ffmpeg-hwaccel",
+        choices=("none", "auto", "cuda"),
+        default="none",
+        help="Optional ffmpeg input hardware acceleration. Experimental with CPU crop/blackdetect filters.",
+    )
+    parser.add_argument(
+        "--quality-mode",
+        choices=("source", "crf", "lossless"),
+        default="source",
+        help="source matches original bits-per-pixel-frame; crf uses --crf; lossless uses qp=0.",
+    )
+    parser.add_argument(
+        "--bitrate-scale",
+        type=float,
+        default=1.0,
+        help="Multiplier for source-matched bitrate. Keep 1.0 to preserve original compression density.",
+    )
+    parser.add_argument(
+        "--remove-black-sections",
+        action="store_true",
+        help="Use ffmpeg blackdetect to remove full-screen black intervals before writing cleaned videos.",
+    )
+    parser.add_argument(
+        "--save-black-sections",
+        action="store_true",
+        help="Save detected full-screen black intervals as separate video clips.",
+    )
+    parser.add_argument(
+        "--black-sections-dir",
+        type=Path,
+        help="Directory for saved black-section clips. Defaults to <out-dir>/black_sections.",
+    )
+    parser.add_argument(
+        "--black-section-save-mode",
+        choices=("copy", "encode"),
+        default="copy",
+        help="How to save black-section clips. copy is fastest/original stream; encode gives exact trim boundaries.",
+    )
+    parser.add_argument(
+        "--black-min-duration",
+        type=float,
+        default=0.5,
+        help="Minimum black interval duration in seconds for ffmpeg blackdetect.",
+    )
+    parser.add_argument(
+        "--black-pix-th",
+        type=float,
+        default=0.10,
+        help="ffmpeg blackdetect pixel threshold. Lower is stricter black.",
+    )
+    parser.add_argument(
+        "--black-pic-th",
+        type=float,
+        default=0.98,
+        help="ffmpeg blackdetect picture threshold: fraction of pixels that must be black.",
+    )
+    parser.add_argument(
+        "--black-section-padding",
+        type=float,
+        default=0.0,
+        help="Seconds added before/after detected black intervals when cutting them out.",
+    )
+    parser.add_argument(
+        "--output-fps",
+        type=float,
+        help="Optional output FPS. Set to the training FPS, e.g. 4, to avoid encoding unused 60 FPS frames.",
+    )
+    parser.add_argument(
+        "--crf",
+        type=int,
+        default=16,
+        help="ffmpeg libx264 CRF. Lower is higher quality/larger files. 16 is near-visually-lossless.",
+    )
+    parser.add_argument(
+        "--faststart",
+        action="store_true",
+        help="Move MP4 metadata to the start of the file. Useful for streaming, slower for preprocessing.",
+    )
+    parser.add_argument(
+        "--ffmpeg-threads",
+        type=int,
+        default=0,
+        help="Threads per ffmpeg process. 0 lets ffmpeg decide; set 1-4 when using many workers.",
+    )
+    parser.add_argument("--log-level", default="INFO", choices=("DEBUG", "INFO", "WARNING", "ERROR"))
+    return parser.parse_args()
+
+
+def setup_logging(level: str) -> None:
+    logging.basicConfig(
+        level=getattr(logging, level),
+        format="[%(levelname)s][%(asctime)s][%(processName)s][%(name)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+
+@contextmanager
+def timed_step(timings: dict[str, float], name: str):
+    start = time.perf_counter()
+    try:
+        yield
+    finally:
+        timings[name] = timings.get(name, 0.0) + (time.perf_counter() - start)
+
+
+def round_timings(timings: dict[str, float]) -> dict[str, float]:
+    return {key: round(value, 4) for key, value in sorted(timings.items())}
+
+
+def read_manifest(path: Path) -> list[tuple[Path, str]]:
+    rows = []
+    with path.open() as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.rsplit(maxsplit=1)
+            if len(parts) == 1:
+                rows.append((Path(parts[0]), "0"))
+            else:
+                rows.append((Path(parts[0]), parts[1]))
+    return rows
+
+
+def write_manifest(path: Path, rows: list[tuple[Path, str]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="") as f:
+        writer = csv.writer(f, delimiter=" ")
+        for video_path, label in rows:
+            writer.writerow([str(video_path), label])
+
+
+def sample_indices(total_frames: int, count: int) -> np.ndarray:
+    if total_frames <= 0:
+        return np.array([], dtype=np.int64)
+    count = max(1, min(count, total_frames))
+    return np.unique(np.linspace(0, total_frames - 1, count, dtype=np.int64))
+
+
+def read_frame(cap: cv2.VideoCapture, index: int):
+    cap.set(cv2.CAP_PROP_POS_FRAMES, int(index))
+    ok, frame = cap.read()
+    return frame if ok else None
+
+
+def even_crop(x1: int, y1: int, x2: int, y2: int, width: int, height: int) -> tuple[int, int, int, int]:
+    x1 = max(0, min(x1, width - 2))
+    y1 = max(0, min(y1, height - 2))
+    x2 = max(x1 + 2, min(x2, width))
+    y2 = max(y1 + 2, min(y2, height))
+    if (x2 - x1) % 2:
+        x2 -= 1
+    if (y2 - y1) % 2:
+        y2 -= 1
+    return x1, y1, x2, y2
+
+
+def detect_crop(path: Path, args: argparse.Namespace) -> dict:
+    cap = cv2.VideoCapture(str(path))
+    if not cap.isOpened():
+        raise RuntimeError(f"Could not open video: {path}")
+
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    fps = float(cap.get(cv2.CAP_PROP_FPS))
+    frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+    bottom_crop = args.bottom_crop_pixels
+    if bottom_crop is None:
+        bottom_crop = int(round(height * args.bottom_crop_ratio))
+    top_crop = args.top_crop_pixels
+    if top_crop is None:
+        top_crop = int(round(height * args.top_crop_ratio))
+    top_crop = max(0, min(top_crop, height - 2))
+    bottom_crop = max(0, min(bottom_crop, height - top_crop - 2))
+    analysis_top = top_crop
+    analysis_bottom = height - bottom_crop
+    analysis_height = max(2, analysis_bottom - analysis_top)
+
+    boxes = []
+    for idx in sample_indices(frames, args.sample_frames):
+        frame = read_frame(cap, int(idx))
+        if frame is None:
+            continue
+        roi = frame[analysis_top:analysis_bottom, :, :]
+        gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+        mask = gray > args.black_threshold
+        if mask.mean() < 0.001:
+            continue
+
+        rows = np.where(mask.mean(axis=1) >= args.min_content_fraction)[0]
+        cols = np.where(mask.mean(axis=0) >= args.min_content_fraction)[0]
+        if len(rows) == 0 or len(cols) == 0:
+            continue
+        boxes.append((int(cols[0]), int(rows[0]), int(cols[-1]) + 1, int(rows[-1]) + 1))
+
+    cap.release()
+
+    if boxes:
+        x1 = min(box[0] for box in boxes) - args.padding
+        y1 = analysis_top + min(box[1] for box in boxes) - args.padding
+        x2 = max(box[2] for box in boxes) + args.padding
+        y2 = analysis_top + max(box[3] for box in boxes) + args.padding
+    else:
+        x1, y1, x2, y2 = 0, analysis_top, width, analysis_bottom
+
+    x1, y1, x2, y2 = even_crop(x1, y1, x2, y2, width, height)
+    y1 = max(y1, analysis_top)
+    y2 = min(y2, analysis_bottom)
+    x1, y1, x2, y2 = even_crop(x1, y1, x2, y2, width, height)
+    return {
+        "source_width": width,
+        "source_height": height,
+        "source_fps": fps,
+        "source_frames": frames,
+        "top_crop_pixels": top_crop,
+        "bottom_crop_pixels": bottom_crop,
+        "crop_x": x1,
+        "crop_y": y1,
+        "crop_width": x2 - x1,
+        "crop_height": y2 - y1,
+    }
+
+
+def common_parent(paths: list[Path]) -> Path:
+    parents = [str(p.resolve().parent) for p in paths]
+    return Path(os.path.commonpath(parents))
+
+
+def output_path_for(source: Path, common_root: Path, videos_dir: Path) -> Path:
+    resolved = source.resolve()
+    try:
+        rel = resolved.relative_to(common_root)
+    except ValueError:
+        rel = Path(resolved.name)
+    return (videos_dir / rel).with_suffix(".mp4")
+
+
+def in_intervals(timestamp: float, intervals: list[tuple[float, float]]) -> bool:
+    return any(start <= timestamp <= end for start, end in intervals)
+
+
+def process_video(
+    source: Path,
+    output: Path,
+    crop: dict,
+    args: argparse.Namespace,
+    black_sections: list[tuple[float, float]] | None = None,
+) -> int:
+    if output.exists() and not args.overwrite:
+        return -1
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+    cap = cv2.VideoCapture(str(source))
+    if not cap.isOpened():
+        raise RuntimeError(f"Could not open video: {source}")
+
+    fps = args.output_fps or crop["source_fps"] or 60.0
+    fourcc = cv2.VideoWriter_fourcc(*args.codec)
+    writer = cv2.VideoWriter(str(output), fourcc, fps, (crop["crop_width"], crop["crop_height"]))
+    if not writer.isOpened():
+        cap.release()
+        raise RuntimeError(f"Could not open video writer: {output}")
+
+    frame_stride = 1
+    if args.output_fps is not None and crop["source_fps"]:
+        frame_stride = max(1, int(round(crop["source_fps"] / args.output_fps)))
+
+    x1 = crop["crop_x"]
+    y1 = crop["crop_y"]
+    x2 = x1 + crop["crop_width"]
+    y2 = y1 + crop["crop_height"]
+
+    black_sections = black_sections or []
+    read_frames = 0
+    written = 0
+    while True:
+        ok, frame = cap.read()
+        if not ok:
+            break
+        timestamp = read_frames / crop["source_fps"] if crop["source_fps"] else 0.0
+        if read_frames % frame_stride == 0 and not in_intervals(timestamp, black_sections):
+            writer.write(frame[y1:y2, x1:x2, :])
+            written += 1
+        read_frames += 1
+        if args.max_output_frames is not None and written >= args.max_output_frames:
+            break
+
+    writer.release()
+    cap.release()
+    return written
+
+
+def merge_intervals(intervals: list[tuple[float, float]], duration: float | None = None) -> list[tuple[float, float]]:
+    cleaned = []
+    for start, end in intervals:
+        start = max(0.0, float(start))
+        end = max(start, float(end))
+        if duration is not None:
+            start = min(start, duration)
+            end = min(end, duration)
+        if end > start:
+            cleaned.append((start, end))
+    cleaned.sort()
+
+    merged = []
+    for start, end in cleaned:
+        if not merged or start > merged[-1][1]:
+            merged.append([start, end])
+        else:
+            merged[-1][1] = max(merged[-1][1], end)
+    return [(start, end) for start, end in merged]
+
+
+def parse_rate(value: str | None) -> float | None:
+    if not value or value == "0/0":
+        return None
+    if "/" in value:
+        num, den = value.split("/", 1)
+        den_f = float(den)
+        return float(num) / den_f if den_f else None
+    return float(value)
+
+
+def ffprobe_video(source: Path, args: argparse.Namespace) -> dict:
+    if not shutil.which(args.ffprobe_bin):
+        raise RuntimeError(f"ffprobe executable not found: {args.ffprobe_bin}")
+    cmd = [
+        args.ffprobe_bin,
+        "-v",
+        "error",
+        "-select_streams",
+        "v:0",
+        "-show_entries",
+        "stream=codec_name,bit_rate,avg_frame_rate,r_frame_rate,width,height,nb_frames,duration:format=bit_rate,duration,size",
+        "-of",
+        "json",
+        str(source),
+    ]
+    proc = subprocess.run(cmd, text=True, capture_output=True, check=True)
+    return json.loads(proc.stdout)
+
+
+def source_matched_encoding(source: Path, crop: dict, args: argparse.Namespace) -> dict:
+    probe = ffprobe_video(source, args)
+    stream = (probe.get("streams") or [{}])[0]
+    fmt = probe.get("format") or {}
+
+    duration = None
+    for value in (stream.get("duration"), fmt.get("duration")):
+        if value not in (None, "N/A"):
+            duration = float(value)
+            break
+    if duration is None and crop["source_fps"]:
+        duration = crop["source_frames"] / crop["source_fps"]
+
+    source_bitrate = None
+    for value in (stream.get("bit_rate"), fmt.get("bit_rate")):
+        if value not in (None, "N/A"):
+            source_bitrate = float(value)
+            break
+    if source_bitrate is None:
+        size = fmt.get("size")
+        if size not in (None, "N/A") and duration:
+            source_bitrate = float(size) * 8.0 / duration
+    if source_bitrate is None:
+        raise RuntimeError(f"Could not determine source bitrate for source-matched encoding: {source}")
+
+    source_width = int(stream.get("width") or crop["source_width"])
+    source_height = int(stream.get("height") or crop["source_height"])
+    source_fps = parse_rate(stream.get("avg_frame_rate")) or parse_rate(stream.get("r_frame_rate")) or crop["source_fps"]
+    output_fps = args.output_fps or source_fps
+
+    source_area = max(1, source_width * source_height)
+    output_area = max(1, crop["crop_width"] * crop["crop_height"])
+    area_ratio = output_area / source_area
+    fps_ratio = output_fps / source_fps if source_fps else 1.0
+    target_bitrate = max(1, int(source_bitrate * area_ratio * fps_ratio * args.bitrate_scale))
+
+    source_bpppf = source_bitrate / (source_area * source_fps) if source_fps else None
+    target_bpppf = target_bitrate / (output_area * output_fps) if output_fps else None
+    return {
+        "source_codec": stream.get("codec_name"),
+        "encoder": args.ffmpeg_encoder,
+        "source_bitrate": int(source_bitrate),
+        "target_bitrate": target_bitrate,
+        "source_bits_per_pixel_frame": source_bpppf,
+        "target_bits_per_pixel_frame": target_bpppf,
+        "source_encoding_width": source_width,
+        "source_encoding_height": source_height,
+        "source_encoding_fps": source_fps,
+        "target_encoding_fps": output_fps,
+        "area_ratio": area_ratio,
+        "fps_ratio": fps_ratio,
+        "bitrate_scale": args.bitrate_scale,
+    }
+
+
+def detect_black_sections_ffmpeg(source: Path, crop: dict, args: argparse.Namespace) -> list[tuple[float, float]]:
+    """Detect full-screen black intervals with ffmpeg blackdetect."""
+    if not (args.remove_black_sections or args.save_black_sections):
+        return []
+    if not shutil.which(args.ffmpeg_bin):
+        raise RuntimeError(f"ffmpeg executable not found: {args.ffmpeg_bin}")
+
+    duration = None
+    if crop["source_fps"]:
+        duration = crop["source_frames"] / crop["source_fps"]
+
+    cmd = [
+        args.ffmpeg_bin,
+        "-hide_banner",
+        "-nostats",
+        "-hwaccel", "auto",             # Automatically select the best HW decoder
+        "-i",
+        str(source),
+        "-vf",
+        f"blackdetect=d={args.black_min_duration}:pix_th={args.black_pix_th}:pic_th={args.black_pic_th}",
+        "-an",
+        "-f",
+        "null",
+        "-",
+    ]
+    proc = subprocess.run(cmd, text=True, capture_output=True, check=False)
+    if proc.returncode != 0:
+        raise RuntimeError(f"ffmpeg blackdetect failed for {source}:\n{proc.stderr}")
+
+    intervals = []
+    pattern = re.compile(
+        r"black_start:(?P<start>[0-9.]+)\s+black_end:(?P<end>[0-9.]+)\s+black_duration:(?P<duration>[0-9.]+)"
+    )
+    for match in pattern.finditer(proc.stderr):
+        start = float(match.group("start")) - args.black_section_padding
+        end = float(match.group("end")) + args.black_section_padding
+        intervals.append((start, end))
+    return merge_intervals(intervals, duration=duration)
+
+
+def ffmpeg_select_non_black_filter(black_sections: list[tuple[float, float]]) -> str | None:
+    if not black_sections:
+        return None
+    terms = [f"between(t\\,{start:.6f}\\,{end:.6f})" for start, end in black_sections]
+    return f"select='not({'+'.join(terms)})'"
+
+
+def nvenc_gpu_for_index(args: argparse.Namespace, idx: int) -> str | None:
+    if not args.nvenc_gpus:
+        return None
+    gpus = [gpu.strip() for gpu in args.nvenc_gpus.split(",") if gpu.strip()]
+    if not gpus:
+        return None
+    return gpus[idx % len(gpus)]
+
+
+def black_section_output_path(output: Path, args: argparse.Namespace, section_idx: int, start: float, end: float) -> Path:
+    videos_root = (args.out_dir / "videos").resolve()
+    try:
+        rel_output = output.resolve().relative_to(videos_root)
+    except ValueError:
+        rel_output = Path(output.name)
+
+    start_ms = int(round(start * 1000))
+    end_ms = int(round(end * 1000))
+    filename = f"{rel_output.stem}_black_{section_idx:03d}_{start_ms:010d}ms_{end_ms:010d}ms.mp4"
+    return args.black_sections_dir / rel_output.parent / filename
+
+
+def save_black_sections_ffmpeg(
+    idx: int,
+    source: Path,
+    output: Path,
+    args: argparse.Namespace,
+    black_sections: list[tuple[float, float]],
+) -> list[dict]:
+    if not args.save_black_sections or not black_sections:
+        return []
+    if not shutil.which(args.ffmpeg_bin):
+        raise RuntimeError(f"ffmpeg executable not found: {args.ffmpeg_bin}")
+
+    saved = []
+    for section_idx, (start, end) in enumerate(black_sections):
+        duration = max(0.0, end - start)
+        if duration <= 0:
+            continue
+
+        section_output = black_section_output_path(output, args, section_idx, start, end)
+        section_output.parent.mkdir(parents=True, exist_ok=True)
+        cmd = [
+            args.ffmpeg_bin,
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y" if args.overwrite else "-n",
+            "-ss",
+            f"{start:.6f}",
+            "-t",
+            f"{duration:.6f}",
+            "-i",
+            str(source),
+            "-map",
+            "0:v:0",
+            "-an",
+        ]
+        if args.black_section_save_mode == "copy":
+            cmd += ["-c:v", "copy"]
+        else:
+            cmd += [
+                "-c:v",
+                args.ffmpeg_encoder,
+            ]
+            if args.ffmpeg_encoder == "libx264":
+                cmd += ["-preset", args.ffmpeg_preset, "-crf", str(args.crf)]
+            else:
+                cmd += ["-preset", args.nvenc_preset]
+                nvenc_gpu = nvenc_gpu_for_index(args, idx)
+                if nvenc_gpu is not None:
+                    cmd += ["-gpu", nvenc_gpu]
+                cmd += ["-rc", "vbr", "-cq:v", str(args.crf)]
+            cmd += ["-pix_fmt", "yuv420p"]
+
+        cmd += [str(section_output)]
+        try:
+            subprocess.run(cmd, check=True)
+        except subprocess.CalledProcessError as exc:
+            raise RuntimeError(f"ffmpeg failed while saving black section {section_idx} from {source}") from exc
+
+        saved.append(
+            {
+                "index": section_idx,
+                "start": start,
+                "end": end,
+                "duration": duration,
+                "path": str(section_output),
+                "mode": args.black_section_save_mode,
+            }
+        )
+    return saved
+
+
+def process_video_ffmpeg(
+    idx: int,
+    source: Path,
+    output: Path,
+    crop: dict,
+    args: argparse.Namespace,
+    black_sections: list[tuple[float, float]] | None = None,
+) -> tuple[int, dict]:
+    if output.exists() and not args.overwrite:
+        return -1, {}
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+    crop_filter = (
+        f"crop={crop['crop_width']}:{crop['crop_height']}:"
+        f"{crop['crop_x']}:{crop['crop_y']}"
+    )
+    black_sections = black_sections or []
+    video_filters = []
+    select_filter = ffmpeg_select_non_black_filter(black_sections)
+    if select_filter is not None:
+        video_filters += [select_filter, "setpts=N/FRAME_RATE/TB"]
+    if args.output_fps is not None:
+        video_filters += [f"fps={args.output_fps:g}"]
+    video_filters += [crop_filter]
+    encoding_info = {}
+    cmd = [
+        args.ffmpeg_bin,
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-y" if args.overwrite else "-n",
+    ]
+    if args.ffmpeg_hwaccel != "none":
+        cmd += ["-hwaccel", args.ffmpeg_hwaccel]
+    cmd += [
+        "-i",
+        str(source),
+        "-vf",
+        ",".join(video_filters),
+        "-an",
+        "-c:v",
+        args.ffmpeg_encoder,
+    ]
+    if args.ffmpeg_encoder == "libx264":
+        cmd += ["-preset", args.ffmpeg_preset]
+    else:
+        cmd += ["-preset", args.nvenc_preset]
+        nvenc_gpu = nvenc_gpu_for_index(args, idx)
+        if nvenc_gpu is not None:
+            cmd += ["-gpu", nvenc_gpu]
+
+    if args.quality_mode == "source":
+        encoding_info = source_matched_encoding(source, crop, args)
+        if args.ffmpeg_encoder != "libx264":
+            encoding_info["encoder_gpu"] = nvenc_gpu_for_index(args, idx)
+        target_bitrate = encoding_info["target_bitrate"]
+        if args.ffmpeg_encoder != "libx264":
+            cmd += ["-rc", "vbr"]
+        cmd += [
+            "-b:v",
+            str(target_bitrate),
+            "-maxrate",
+            str(target_bitrate),
+            "-bufsize",
+            str(max(target_bitrate * 2, 1)),
+        ]
+    elif args.quality_mode == "lossless":
+        if args.ffmpeg_encoder != "libx264":
+            raise RuntimeError("--quality-mode lossless is only supported with --ffmpeg-encoder libx264")
+        cmd += ["-qp", "0"]
+    else:
+        if args.ffmpeg_encoder == "libx264":
+            cmd += ["-crf", str(args.crf)]
+        else:
+            cmd += ["-rc", "vbr", "-cq:v", str(args.crf)]
+    cmd += [
+        "-pix_fmt",
+        "yuv420p",
+        "-fps_mode",
+        "cfr",
+    ]
+    if args.faststart:
+        cmd += ["-movflags", "+faststart"]
+    if args.ffmpeg_threads > 0:
+        cmd += ["-threads", str(args.ffmpeg_threads)]
+    cmd.append(str(output))
+
+    try:
+        subprocess.run(cmd, check=True)
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError(f"ffmpeg failed for {source}") from exc
+
+    cap = cv2.VideoCapture(str(output))
+    written = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    cap.release()
+    return written, encoding_info
+
+
+def make_preview(source: Path, output: Path, crop: dict, preview_path: Path, frame_count: int) -> None:
+    cap_src = cv2.VideoCapture(str(source))
+    cap_out = cv2.VideoCapture(str(output))
+    total = int(min(cap_src.get(cv2.CAP_PROP_FRAME_COUNT), cap_out.get(cv2.CAP_PROP_FRAME_COUNT)))
+    indices = sample_indices(total, frame_count)
+    src_frames, out_frames = [], []
+
+    for idx in indices:
+        src = read_frame(cap_src, int(idx))
+        out = read_frame(cap_out, int(idx))
+        if src is None or out is None:
+            continue
+        src = cv2.cvtColor(src, cv2.COLOR_BGR2RGB)
+        out = cv2.cvtColor(out, cv2.COLOR_BGR2RGB)
+        src = cv2.resize(src, (320, 180), interpolation=cv2.INTER_AREA)
+        out_h = max(1, int(round(320 * out.shape[0] / out.shape[1])))
+        out = cv2.resize(out, (320, out_h), interpolation=cv2.INTER_AREA)
+        src_frames.append(src)
+        out_frames.append(out)
+
+    cap_src.release()
+    cap_out.release()
+    if not src_frames:
+        return
+
+    row_h = max(180, max(frame.shape[0] for frame in out_frames)) + 22
+    canvas = Image.new("RGB", (320 * len(src_frames), row_h * 2), (20, 20, 20))
+    draw = ImageDraw.Draw(canvas)
+    for i, (src, out) in enumerate(zip(src_frames, out_frames)):
+        x = i * 320
+        canvas.paste(Image.fromarray(src), (x, 0))
+        canvas.paste(Image.fromarray(out), (x, row_h))
+        draw.text((x + 4, 183), f"before frame {int(indices[i])}", fill=(235, 235, 235))
+        draw.text((x + 4, row_h + out.shape[0] + 3), "after", fill=(235, 235, 235))
+
+    preview_path.parent.mkdir(parents=True, exist_ok=True)
+    canvas.save(preview_path, quality=95)
+
+
+def args_for_json(args: argparse.Namespace) -> dict:
+    result = {}
+    for key, value in vars(args).items():
+        result[key] = str(value) if isinstance(value, Path) else value
+    return result
+
+
+def resolve_backend(args: argparse.Namespace) -> str:
+    if args.backend == "auto":
+        return "ffmpeg" if shutil.which(args.ffmpeg_bin) else "opencv"
+    if args.backend == "ffmpeg" and not shutil.which(args.ffmpeg_bin):
+        raise SystemExit(f"ffmpeg backend requested but executable not found: {args.ffmpeg_bin}")
+    return args.backend
+
+
+def process_one(task: tuple[int, str, str, str, str, argparse.Namespace, bool]) -> dict:
+    idx, source_str, label, output_str, preview_str, args, use_ffmpeg = task
+    source = Path(source_str)
+    output = Path(output_str)
+    timings: dict[str, float] = {}
+    logger.info("video %d start: %s", idx, source)
+    with timed_step(timings, "total"):
+        with timed_step(timings, "detect_crop"):
+            crop = detect_crop(source, args)
+        logger.info(
+            "video %d crop: %dx%d -> %dx%d at x=%d y=%d top=%d bottom=%d in %.2fs",
+            idx,
+            crop["source_width"],
+            crop["source_height"],
+            crop["crop_width"],
+            crop["crop_height"],
+            crop["crop_x"],
+            crop["crop_y"],
+            crop["top_crop_pixels"],
+            crop["bottom_crop_pixels"],
+            timings["detect_crop"],
+        )
+
+        with timed_step(timings, "detect_black_sections"):
+            black_sections = detect_black_sections_ffmpeg(source, crop, args)
+        if black_sections:
+            logger.info(
+                "video %d black sections: %d intervals detected, %.2fs total, detection %.2fs",
+                idx,
+                len(black_sections),
+                sum(end - start for start, end in black_sections),
+                timings["detect_black_sections"],
+            )
+        else:
+            logger.info("video %d black sections: none, detection %.2fs", idx, timings["detect_black_sections"])
+
+        with timed_step(timings, "save_black_sections"):
+            saved_black_sections = save_black_sections_ffmpeg(idx, source, output, args, black_sections)
+        if saved_black_sections:
+            logger.info(
+                "video %d saved black sections: %d clips in %.2fs",
+                idx,
+                len(saved_black_sections),
+                timings["save_black_sections"],
+            )
+
+        cut_black_sections = black_sections if args.remove_black_sections else []
+        with timed_step(timings, "encode"):
+            if use_ffmpeg and args.max_output_frames is None:
+                written, encoding_info = process_video_ffmpeg(
+                    idx,
+                    source,
+                    output,
+                    crop,
+                    args,
+                    black_sections=cut_black_sections,
+                )
+                backend_used = "ffmpeg"
+            else:
+                written = process_video(source, output, crop, args, black_sections=cut_black_sections)
+                encoding_info = {}
+                backend_used = "opencv"
+        logger.info("video %d encode: backend=%s frames=%s in %.2fs", idx, backend_used, written, timings["encode"])
+
+        if written < 0:
+            with timed_step(timings, "probe_existing_output"):
+                cap = cv2.VideoCapture(str(output))
+                written = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                cap.release()
+
+        item = {
+            "index": idx,
+            "source_path": str(source),
+            "output_path": str(output),
+            "label": label,
+            "written_frames": written,
+            "backend": backend_used,
+            "output_fps": args.output_fps or crop["source_fps"],
+            "quality_mode": args.quality_mode if backend_used == "ffmpeg" else "opencv",
+            "encoding": encoding_info,
+            "black_sections_detected": [{"start": start, "end": end} for start, end in black_sections],
+            "black_sections_removed": [{"start": start, "end": end} for start, end in cut_black_sections],
+            "black_sections_saved": saved_black_sections,
+            "black_duration_removed": sum(end - start for start, end in cut_black_sections),
+            **crop,
+        }
+        if preview_str:
+            with timed_step(timings, "preview"):
+                preview = Path(preview_str)
+                make_preview(source, output, crop, preview, args.preview_frames)
+                item["preview_path"] = str(preview)
+            logger.info("video %d preview: %s in %.2fs", idx, preview, timings["preview"])
+
+    item["timings_seconds"] = round_timings(timings)
+    logger.info(
+        "video %d done: total=%.2fs detect_crop=%.2fs blackdetect=%.2fs encode=%.2fs",
+        idx,
+        timings.get("total", 0.0),
+        timings.get("detect_crop", 0.0),
+        timings.get("detect_black_sections", 0.0),
+        timings.get("encode", 0.0),
+    )
+    return item
+
+
+def main() -> None:
+    args = parse_args()
+    setup_logging(args.log_level)
+    main_timings: dict[str, float] = {}
+    with timed_step(main_timings, "total"):
+        with timed_step(main_timings, "setup"):
+            args.out_dir.mkdir(parents=True, exist_ok=True)
+            videos_dir = args.out_dir / "videos"
+            if args.black_sections_dir is None:
+                args.black_sections_dir = args.out_dir / "black_sections"
+            args.black_sections_dir = args.black_sections_dir.resolve()
+            output_manifest = args.output_manifest or (args.out_dir / args.manifest.name)
+
+            rows = read_manifest(args.manifest)
+            if args.limit is not None:
+                rows = rows[: args.limit]
+            if not rows:
+                raise SystemExit(f"No rows found in manifest: {args.manifest}")
+
+            root = common_parent([path for path, _ in rows])
+            backend = resolve_backend(args)
+            use_ffmpeg = backend == "ffmpeg"
+            if args.max_output_frames is not None and use_ffmpeg:
+                logger.info("max-output-frames is set; using OpenCV backend for debug frame limiting.")
+                use_ffmpeg = False
+
+            tasks = []
+            for idx, (source, label) in enumerate(rows):
+                output = output_path_for(source, root, videos_dir).resolve()
+                preview = args.out_dir / "previews" / f"{output.stem}_preview.jpg" if idx < args.preview_count else None
+                tasks.append((idx, str(source), label, str(output), str(preview) if preview else "", args, use_ffmpeg))
+
+        logger.info(
+            "preprocessing start: videos=%d backend=%s workers=%d output_fps=%s remove_black=%s save_black=%s",
+            len(tasks),
+            "ffmpeg" if use_ffmpeg else "opencv",
+            max(1, args.workers),
+            args.output_fps,
+            args.remove_black_sections,
+            args.save_black_sections,
+        )
+
+        metadata = []
+        max_workers = max(1, args.workers)
+        with timed_step(main_timings, "process_videos"):
+            if max_workers == 1:
+                for task in tqdm(tasks, total=len(tasks)):
+                    item = process_one(task)
+                    metadata.append(item)
+                    print(json.dumps(item), flush=True)
+            else:
+                with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+                    futures = [executor.submit(process_one, task) for task in tasks]
+                    for future in tqdm(concurrent.futures.as_completed(futures), total=len(futures)):
+                        item = future.result()
+                        metadata.append(item)
+                        print(json.dumps(item), flush=True)
+
+        with timed_step(main_timings, "write_outputs"):
+            metadata = sorted(metadata, key=lambda item: item["index"])
+            processed_rows = [(Path(item["output_path"]), item["label"]) for item in metadata]
+            aggregate_timings: dict[str, float] = {}
+            for item in metadata:
+                for key, value in item.get("timings_seconds", {}).items():
+                    aggregate_timings[key] = aggregate_timings.get(key, 0.0) + float(value)
+
+            write_manifest(output_manifest, processed_rows)
+            with (args.out_dir / "preprocess_metadata.json").open("w") as f:
+                json.dump(
+                    {
+                        "input_manifest": str(args.manifest),
+                        "output_manifest": str(output_manifest.resolve()),
+                        "videos_dir": str(videos_dir.resolve()),
+                        "black_sections_dir": str(args.black_sections_dir),
+                        "common_source_root": str(root),
+                        "num_videos": len(processed_rows),
+                        "backend": "ffmpeg" if use_ffmpeg else "opencv",
+                        "settings": args_for_json(args),
+                        "timings_seconds": {
+                            "main": round_timings(main_timings),
+                            "aggregate_video_steps": round_timings(aggregate_timings),
+                        },
+                        "videos": metadata,
+                    },
+                    f,
+                    indent=2,
+                )
+
+    metadata_path = args.out_dir / "preprocess_metadata.json"
+    if metadata_path.exists():
+        with metadata_path.open() as f:
+            metadata_doc = json.load(f)
+        metadata_doc.setdefault("timings_seconds", {})["main"] = round_timings(main_timings)
+        with metadata_path.open("w") as f:
+            json.dump(metadata_doc, f, indent=2)
+
+    logger.info(
+        "preprocessing done: videos=%d total=%.2fs process_videos=%.2fs write_outputs=%.2fs",
+        len(processed_rows),
+        main_timings.get("total", 0.0),
+        main_timings.get("process_videos", 0.0),
+        main_timings.get("write_outputs", 0.0),
+    )
+    print(
+        json.dumps(
+            {
+                "output_manifest": str(output_manifest.resolve()),
+                "num_videos": len(processed_rows),
+                "timings_seconds": round_timings(main_timings),
+            },
+            indent=2,
+        )
+    )
+
+
+if __name__ == "__main__":
+    main()
