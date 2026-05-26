@@ -88,6 +88,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Only detect crop/black intervals and write metadata; do not encode cleaned videos.",
     )
+    parser.add_argument(
+        "--no-resume",
+        action="store_true",
+        help="Ignore existing preprocess_metadata.json and process all selected manifest rows.",
+    )
     parser.add_argument("--preview-count", type=int, default=0, help="Write before/after contact sheets for first N videos.")
     parser.add_argument("--preview-frames", type=int, default=8, help="Frames per preview sheet.")
     parser.add_argument("--codec", default="mp4v", help="OpenCV fourcc codec for output mp4 files.")
@@ -299,10 +304,20 @@ def read_manifest(path: Path) -> list[tuple[Path, str]]:
 
 def write_manifest(path: Path, rows: list[tuple[Path, str]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", newline="") as f:
+    tmp_path = path.with_name(f".{path.name}.tmp")
+    with tmp_path.open("w", newline="") as f:
         writer = csv.writer(f, delimiter=" ")
         for video_path, label in rows:
             writer.writerow([str(video_path), label])
+    os.replace(tmp_path, path)
+
+
+def atomic_write_json(path: Path, doc: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_name(f".{path.name}.tmp")
+    with tmp_path.open("w") as f:
+        json.dump(doc, f, indent=2)
+    os.replace(tmp_path, path)
 
 
 def sample_indices(total_frames: int, count: int) -> np.ndarray:
@@ -1124,6 +1139,100 @@ def args_for_json(args: argparse.Namespace) -> dict:
     return result
 
 
+def normalize_source_path(path: str | Path) -> str:
+    path = Path(path)
+    try:
+        return str(path.resolve())
+    except Exception:
+        return str(path)
+
+
+def metadata_key(item: dict) -> tuple[int, str]:
+    return int(item["index"]), normalize_source_path(item.get("source_path", ""))
+
+
+def load_existing_metadata(metadata_path: Path, selected_sources: set[str]) -> dict[tuple[int, str], dict]:
+    if not metadata_path.exists():
+        return {}
+    try:
+        with metadata_path.open() as f:
+            doc = json.load(f)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"Could not resume because metadata is not valid JSON: {metadata_path}") from exc
+
+    existing = {}
+    for item in doc.get("videos", []):
+        try:
+            key = metadata_key(item)
+        except (KeyError, TypeError, ValueError):
+            continue
+        if key[1] in selected_sources:
+            existing[key] = item
+    return existing
+
+
+def build_preprocess_metadata_doc(
+    args: argparse.Namespace,
+    output_manifest: Path,
+    videos_dir: Path,
+    black_sections_dir: Path,
+    root: Path,
+    use_ffmpeg: bool,
+    metadata: list[dict],
+    main_timings: dict[str, float],
+) -> dict:
+    aggregate_timings: dict[str, float] = {}
+    for item in metadata:
+        for key, value in item.get("timings_seconds", {}).items():
+            aggregate_timings[key] = aggregate_timings.get(key, 0.0) + float(value)
+
+    return {
+        "input_manifest": str(args.manifest),
+        "output_manifest": str(output_manifest.resolve()),
+        "videos_dir": str(videos_dir.resolve()),
+        "black_sections_dir": str(black_sections_dir),
+        "common_source_root": str(root),
+        "num_videos": len(metadata),
+        "backend": "ffmpeg" if use_ffmpeg else "opencv",
+        "settings": args_for_json(args),
+        "timings_seconds": {
+            "main": round_timings(main_timings),
+            "aggregate_video_steps": round_timings(aggregate_timings),
+        },
+        "videos": metadata,
+    }
+
+
+def checkpoint_outputs(
+    args: argparse.Namespace,
+    metadata_path: Path,
+    output_manifest: Path,
+    videos_dir: Path,
+    black_sections_dir: Path,
+    root: Path,
+    use_ffmpeg: bool,
+    metadata_by_key: dict[tuple[int, str], dict],
+    main_timings: dict[str, float],
+) -> list[dict]:
+    metadata = sorted(metadata_by_key.values(), key=lambda item: (int(item["index"]), str(item.get("source_path", ""))))
+    processed_rows = [(Path(item["output_path"]), item["label"]) for item in metadata]
+    write_manifest(output_manifest, processed_rows)
+    atomic_write_json(
+        metadata_path,
+        build_preprocess_metadata_doc(
+            args=args,
+            output_manifest=output_manifest,
+            videos_dir=videos_dir,
+            black_sections_dir=black_sections_dir,
+            root=root,
+            use_ffmpeg=use_ffmpeg,
+            metadata=metadata,
+            main_timings=main_timings,
+        ),
+    )
+    return metadata
+
+
 def resolve_backend(args: argparse.Namespace) -> str:
     if args.backend == "auto":
         return "ffmpeg" if shutil.which(args.ffmpeg_bin) else "opencv"
@@ -1253,6 +1362,7 @@ def main() -> None:
                 args.black_sections_dir = args.out_dir / "black_sections"
             args.black_sections_dir = args.black_sections_dir.resolve()
             output_manifest = args.output_manifest or (args.out_dir / args.manifest.name)
+            metadata_path = args.out_dir / "preprocess_metadata.json"
 
             rows = read_manifest(args.manifest)
             if args.limit is not None:
@@ -1267,15 +1377,40 @@ def main() -> None:
                 logger.info("max-output-frames is set; using OpenCV backend for debug frame limiting.")
                 use_ffmpeg = False
 
+            selected_sources = {normalize_source_path(source) for source, _ in rows}
+            existing_metadata = {}
+            if not args.no_resume:
+                existing_metadata = load_existing_metadata(metadata_path, selected_sources)
+                if existing_metadata:
+                    logger.info("resume enabled: loaded %d completed metadata entries", len(existing_metadata))
+
             tasks = []
             for idx, (source, label) in enumerate(rows):
+                resume_key = (idx, normalize_source_path(source))
+                if resume_key in existing_metadata:
+                    continue
                 output = output_path_for(source, root, videos_dir).resolve()
                 preview = args.out_dir / "previews" / f"{output.stem}_preview.jpg" if idx < args.preview_count else None
                 tasks.append((idx, str(source), label, str(output), str(preview) if preview else "", args, use_ffmpeg))
 
+            metadata_by_key = dict(existing_metadata)
+            if metadata_by_key:
+                checkpoint_outputs(
+                    args=args,
+                    metadata_path=metadata_path,
+                    output_manifest=output_manifest,
+                    videos_dir=videos_dir,
+                    black_sections_dir=args.black_sections_dir,
+                    root=root,
+                    use_ffmpeg=use_ffmpeg,
+                    metadata_by_key=metadata_by_key,
+                    main_timings=main_timings,
+                )
+
         logger.info(
-            "preprocessing start: videos=%d backend=%s workers=%d output_fps=%s remove_black=%s save_black=%s",
+            "preprocessing start: pending=%d completed=%d backend=%s workers=%d output_fps=%s remove_black=%s save_black=%s",
             len(tasks),
+            len(metadata_by_key),
             "ffmpeg" if use_ffmpeg else "opencv",
             max(1, args.workers),
             args.output_fps,
@@ -1283,63 +1418,59 @@ def main() -> None:
             args.save_black_sections,
         )
 
-        metadata = []
         max_workers = max(1, args.workers)
         with timed_step(main_timings, "process_videos"):
             if max_workers == 1:
                 for task in tqdm(tasks, total=len(tasks)):
                     item = process_one(task)
-                    metadata.append(item)
+                    metadata_by_key[metadata_key(item)] = item
+                    checkpoint_outputs(
+                        args=args,
+                        metadata_path=metadata_path,
+                        output_manifest=output_manifest,
+                        videos_dir=videos_dir,
+                        black_sections_dir=args.black_sections_dir,
+                        root=root,
+                        use_ffmpeg=use_ffmpeg,
+                        metadata_by_key=metadata_by_key,
+                        main_timings=main_timings,
+                    )
                     print(json.dumps(item), flush=True)
             else:
                 with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
                     futures = [executor.submit(process_one, task) for task in tasks]
                     for future in tqdm(concurrent.futures.as_completed(futures), total=len(futures)):
                         item = future.result()
-                        metadata.append(item)
+                        metadata_by_key[metadata_key(item)] = item
+                        checkpoint_outputs(
+                            args=args,
+                            metadata_path=metadata_path,
+                            output_manifest=output_manifest,
+                            videos_dir=videos_dir,
+                            black_sections_dir=args.black_sections_dir,
+                            root=root,
+                            use_ffmpeg=use_ffmpeg,
+                            metadata_by_key=metadata_by_key,
+                            main_timings=main_timings,
+                        )
                         print(json.dumps(item), flush=True)
 
         with timed_step(main_timings, "write_outputs"):
-            metadata = sorted(metadata, key=lambda item: item["index"])
-            processed_rows = [(Path(item["output_path"]), item["label"]) for item in metadata]
-            aggregate_timings: dict[str, float] = {}
-            for item in metadata:
-                for key, value in item.get("timings_seconds", {}).items():
-                    aggregate_timings[key] = aggregate_timings.get(key, 0.0) + float(value)
-
-            write_manifest(output_manifest, processed_rows)
-            with (args.out_dir / "preprocess_metadata.json").open("w") as f:
-                json.dump(
-                    {
-                        "input_manifest": str(args.manifest),
-                        "output_manifest": str(output_manifest.resolve()),
-                        "videos_dir": str(videos_dir.resolve()),
-                        "black_sections_dir": str(args.black_sections_dir),
-                        "common_source_root": str(root),
-                        "num_videos": len(processed_rows),
-                        "backend": "ffmpeg" if use_ffmpeg else "opencv",
-                        "settings": args_for_json(args),
-                        "timings_seconds": {
-                            "main": round_timings(main_timings),
-                            "aggregate_video_steps": round_timings(aggregate_timings),
-                        },
-                        "videos": metadata,
-                    },
-                    f,
-                    indent=2,
-                )
-
-    metadata_path = args.out_dir / "preprocess_metadata.json"
-    if metadata_path.exists():
-        with metadata_path.open() as f:
-            metadata_doc = json.load(f)
-        metadata_doc.setdefault("timings_seconds", {})["main"] = round_timings(main_timings)
-        with metadata_path.open("w") as f:
-            json.dump(metadata_doc, f, indent=2)
+            metadata = checkpoint_outputs(
+                args=args,
+                metadata_path=metadata_path,
+                output_manifest=output_manifest,
+                videos_dir=videos_dir,
+                black_sections_dir=args.black_sections_dir,
+                root=root,
+                use_ffmpeg=use_ffmpeg,
+                metadata_by_key=metadata_by_key,
+                main_timings=main_timings,
+            )
 
     logger.info(
         "preprocessing done: videos=%d total=%.2fs process_videos=%.2fs write_outputs=%.2fs",
-        len(processed_rows),
+        len(metadata),
         main_timings.get("total", 0.0),
         main_timings.get("process_videos", 0.0),
         main_timings.get("write_outputs", 0.0),
@@ -1348,7 +1479,7 @@ def main() -> None:
         json.dumps(
             {
                 "output_manifest": str(output_manifest.resolve()),
-                "num_videos": len(processed_rows),
+                "num_videos": len(metadata),
                 "timings_seconds": round_timings(main_timings),
             },
             indent=2,

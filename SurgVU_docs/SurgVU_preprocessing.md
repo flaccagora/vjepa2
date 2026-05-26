@@ -82,6 +82,7 @@ This is intentionally static per video. It avoids frame-by-frame geometry change
 | `--limit` | Process only first N manifest rows. | Use for debugging |
 | `--max-output-frames` | Write only first N output frames. | Use for debugging only |
 | `--metadata-only` | Detect crop/black intervals and write metadata without encoding cleaned videos. | Recommended fast path |
+| `--no-resume` | Ignore existing `<out-dir>/preprocess_metadata.json` and process all selected manifest rows again. | Omit for long jobs |
 | `--overwrite` | Replace existing cleaned videos. | Use when retuning crop settings |
 | `--backend` | Video writing backend. `auto` uses `ffmpeg` if available, otherwise OpenCV. | `auto` |
 | `--workers` | Number of videos processed in parallel. | `4` on a 32 CPU node |
@@ -407,6 +408,18 @@ At training time, `VideoDataset`:
 - returns source frame indices from the original video, so dataloader previews still show where frames came from
 
 If you set only `--save-black-sections` and omit `--remove-black-sections`, metadata is still sufficient for training-time black-interval avoidance because detected intervals are recorded in `black_sections_detected`.
+
+## Checkpoint And Resume
+
+The preprocessing script checkpoints after every completed video:
+
+- `<out-dir>/preprocess_metadata.json` is updated atomically with `os.replace`
+- `<out-dir>/<manifest-name>` is updated atomically with all completed rows
+- finished metadata entries are reused on restart
+
+This means a Slurm timeout or interrupted shell should not lose already processed videos. Re-run the same command and the script will load existing metadata, skip completed `(index, source_path)` entries, and continue from pending manifest rows.
+
+Use `--no-resume` only when you intentionally want to ignore existing metadata and recompute every selected row.
 
 ## Tuning Top and Bottom Crops
 

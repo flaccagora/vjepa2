@@ -638,6 +638,7 @@ The main controls are:
 | `--padding` | Pixels added around detected content crop. | `4` |
 | `--sample-frames` | Number of frames sampled per video to detect the static crop. | `24` |
 | `--metadata-only` | Detect crop/black intervals and write metadata without encoding cleaned videos. | Recommended fast path |
+| `--no-resume` | Ignore existing `<out-dir>/preprocess_metadata.json` and process all selected rows again. | Omit for long jobs |
 | `--backend` | Video writer. `auto` uses ffmpeg when available and falls back to OpenCV. | `auto` |
 | `--workers` | Number of videos processed in parallel. | `4` on a 32 CPU node |
 | `--ffmpeg-threads` | Threads per ffmpeg process. | `4` with `--workers 4` |

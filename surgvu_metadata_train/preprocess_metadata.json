@@ -1,0 +1,3546 @@
+{
+  "input_manifest": "data/surgvu/manifest_train.csv",
+  "output_manifest": "/home/matteo/Desktop/vjepa2/surgvu_metadata_train/manifest_train.csv",
+  "videos_dir": "/home/matteo/Desktop/vjepa2/surgvu_metadata_train/videos",
+  "black_sections_dir": "/home/matteo/Desktop/vjepa2/surgvu_metadata_train/black_sections",
+  "common_source_root": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24",
+  "num_videos": 76,
+  "backend": "ffmpeg",
+  "settings": {
+    "manifest": "data/surgvu/manifest_train.csv",
+    "out_dir": "surgvu_metadata_train",
+    "output_manifest": null,
+    "sample_frames": 24,
+    "black_threshold": 12,
+    "min_content_fraction": 0.01,
+    "bottom_crop_ratio": 0.06,
+    "bottom_crop_pixels": null,
+    "top_crop_ratio": 0.06,
+    "top_crop_pixels": null,
+    "padding": 4,
+    "limit": null,
+    "overwrite": true,
+    "max_output_frames": null,
+    "metadata_only": true,
+    "no_resume": false,
+    "preview_count": 0,
+    "preview_frames": 8,
+    "codec": "mp4v",
+    "backend": "ffmpeg",
+    "workers": 1,
+    "ffmpeg_bin": "ffmpeg",
+    "ffprobe_bin": "ffprobe",
+    "ffmpeg_encoder": "libx264",
+    "ffmpeg_preset": "veryfast",
+    "nvenc_preset": "p4",
+    "nvenc_gpus": "",
+    "ffmpeg_hwaccel": "none",
+    "quality_mode": "source",
+    "bitrate_scale": 1.0,
+    "remove_black_sections": true,
+    "save_black_sections": false,
+    "black_sections_dir": "/home/matteo/Desktop/vjepa2/surgvu_metadata_train/black_sections",
+    "black_section_save_mode": "copy",
+    "black_detection_mode": "sampled",
+    "black_sample_fps": 1.0,
+    "black_sample_width": 34,
+    "black_sample_height": 36,
+    "black_sample_filter_backend": "cpu",
+    "black_cvcuda_batch_size": 64,
+    "black_sample_threshold": 12,
+    "black_refine_boundaries": false,
+    "black_refine_fps": 8.0,
+    "black_refine_window": 2.0,
+    "black_min_duration": 0.5,
+    "black_pix_th": 0.1,
+    "black_pic_th": 0.98,
+    "black_section_padding": 0.5,
+    "output_fps": null,
+    "crf": 16,
+    "faststart": false,
+    "ffmpeg_threads": 0,
+    "log_level": "INFO"
+  },
+  "timings_seconds": {
+    "main": {
+      "process_videos": 14051.7124,
+      "setup": 0.0624
+    },
+    "aggregate_video_steps": {
+      "detect_black_sections": 14140.6426,
+      "detect_crop": 110.1176,
+      "encode": 0.0,
+      "save_black_sections": 0.0,
+      "total": 14250.7881
+    }
+  },
+  "videos": [
+    {
+      "index": 0,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_000/case_000_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_000/case_000_video_part_001.mp4",
+      "label": "6",
+      "written_frames": 151133,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 1113.5,
+          "end": 1682.5
+        },
+        {
+          "start": 2359.5,
+          "end": 2518.883333333333
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 151133,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 50.2454,
+        "detect_crop": 1.4674,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 51.7132
+      }
+    },
+    {
+      "index": 1,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_001/case_001_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_001/case_001_video_part_001.mp4",
+      "label": "6",
+      "written_frames": 447581,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 5505.5,
+          "end": 6009.5
+        },
+        {
+          "start": 6023.5,
+          "end": 6073.5
+        },
+        {
+          "start": 6114.5,
+          "end": 6144.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 447581,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 146.2454,
+        "detect_crop": 1.5166,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 147.7625
+      }
+    },
+    {
+      "index": 2,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_005/case_005_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_005/case_005_video_part_001.mp4",
+      "label": "5",
+      "written_frames": 1078929,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 503.5,
+          "end": 2162.5
+        },
+        {
+          "start": 7072.5,
+          "end": 9387.5
+        },
+        {
+          "start": 9680.5,
+          "end": 9725.5
+        },
+        {
+          "start": 11443.5,
+          "end": 11468.5
+        },
+        {
+          "start": 11928.5,
+          "end": 11956.5
+        },
+        {
+          "start": 13581.5,
+          "end": 17551.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 1078929,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 336.1289,
+        "detect_crop": 1.4308,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 337.56
+      }
+    },
+    {
+      "index": 3,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_006/case_006_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_006/case_006_video_part_001.mp4",
+      "label": "1",
+      "written_frames": 1335586,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 154.5,
+          "end": 191.5
+        },
+        {
+          "start": 7664.5,
+          "end": 17036.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 1335586,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 370.9499,
+        "detect_crop": 1.3746,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 372.3248
+      }
+    },
+    {
+      "index": 4,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_007/case_007_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_007/case_007_video_part_001.mp4",
+      "label": "5",
+      "written_frames": 991966,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 523.5,
+          "end": 2789.5
+        },
+        {
+          "start": 9395.5,
+          "end": 11593.5
+        },
+        {
+          "start": 11596.5,
+          "end": 11598.5
+        },
+        {
+          "start": 11600.5,
+          "end": 11604.5
+        },
+        {
+          "start": 11647.5,
+          "end": 11651.5
+        },
+        {
+          "start": 13572.5,
+          "end": 13610.5
+        },
+        {
+          "start": 14633.5,
+          "end": 14635.5
+        },
+        {
+          "start": 14686.5,
+          "end": 14734.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 991966,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 310.9292,
+        "detect_crop": 1.4214,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 312.3509
+      }
+    },
+    {
+      "index": 5,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_009/case_009_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_009/case_009_video_part_001.mp4",
+      "label": "5",
+      "written_frames": 870260,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 551.5,
+          "end": 3362.5
+        },
+        {
+          "start": 11424.5,
+          "end": 13979.5
+        },
+        {
+          "start": 13993.5,
+          "end": 14029.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 870260,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 275.9196,
+        "detect_crop": 1.5332,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 277.4532
+      }
+    },
+    {
+      "index": 6,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_010/case_010_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_010/case_010_video_part_002.mp4",
+      "label": "5",
+      "written_frames": 336586,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 2896.5,
+          "end": 3663.5
+        },
+        {
+          "start": 5398.5,
+          "end": 5609.766666666666
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 336586,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 114.4003,
+        "detect_crop": 1.4516,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 115.8523
+      }
+    },
+    {
+      "index": 7,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_012/case_012_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_012/case_012_video_part_002.mp4",
+      "label": "5",
+      "written_frames": 122578,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 122578,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 43.5027,
+        "detect_crop": 1.4625,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 44.9655
+      }
+    },
+    {
+      "index": 8,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_014/case_014_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_014/case_014_video_part_002.mp4",
+      "label": "5",
+      "written_frames": 192984,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 305.5,
+          "end": 363.5
+        },
+        {
+          "start": 2998.5,
+          "end": 3216.4
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 192984,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 65.2783,
+        "detect_crop": 1.3899,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 66.6685
+      }
+    },
+    {
+      "index": 9,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_016/case_016_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_016/case_016_video_part_001.mp4",
+      "label": "5",
+      "written_frames": 1186003,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 669.5,
+          "end": 3499.5
+        },
+        {
+          "start": 7424.5,
+          "end": 10566.5
+        },
+        {
+          "start": 17924.5,
+          "end": 17945.5
+        },
+        {
+          "start": 18434.5,
+          "end": 18484.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 1186003,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 189,
+      "crop_y": 43,
+      "crop_width": 902,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 348.8028,
+        "detect_crop": 1.3282,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 350.1313
+      }
+    },
+    {
+      "index": 10,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_017/case_017_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_017/case_017_video_part_001.mp4",
+      "label": "5",
+      "written_frames": 1091991,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 904.5,
+          "end": 3096.5
+        },
+        {
+          "start": 4551.5,
+          "end": 4584.5
+        },
+        {
+          "start": 11516.5,
+          "end": 13835.5
+        },
+        {
+          "start": 14062.5,
+          "end": 14088.5
+        },
+        {
+          "start": 15695.5,
+          "end": 15785.5
+        },
+        {
+          "start": 17425.5,
+          "end": 17497.5
+        },
+        {
+          "start": 17673.5,
+          "end": 17714.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 1091991,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 333.1676,
+        "detect_crop": 1.4578,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 334.6258
+      }
+    },
+    {
+      "index": 11,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_017/case_017_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_017/case_017_video_part_002.mp4",
+      "label": "5",
+      "written_frames": 422786,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 422786,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 158.0938,
+        "detect_crop": 1.593,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 159.6872
+      }
+    },
+    {
+      "index": 12,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_019/case_019_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_019/case_019_video_part_001.mp4",
+      "label": "5",
+      "written_frames": 247319,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 0.0,
+          "end": 373.5
+        },
+        {
+          "start": 375.5,
+          "end": 392.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 247319,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 0,
+      "crop_y": 43,
+      "crop_width": 1280,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 69.3548,
+        "detect_crop": 1.4809,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 70.8361
+      }
+    },
+    {
+      "index": 13,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_020/case_020_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_020/case_020_video_part_001.mp4",
+      "label": "5",
+      "written_frames": 1188055,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 545.5,
+          "end": 3588.5
+        },
+        {
+          "start": 5085.5,
+          "end": 5126.5
+        },
+        {
+          "start": 11091.5,
+          "end": 14372.5
+        },
+        {
+          "start": 15818.5,
+          "end": 15870.5
+        },
+        {
+          "start": 17793.5,
+          "end": 17883.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 1188055,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 347.27,
+        "detect_crop": 1.3551,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 348.6255
+      }
+    },
+    {
+      "index": 14,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_020/case_020_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_020/case_020_video_part_002.mp4",
+      "label": "5",
+      "written_frames": 197304,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 1773.5,
+          "end": 1826.5
+        },
+        {
+          "start": 2999.5,
+          "end": 3288.4
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 197304,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 68.1122,
+        "detect_crop": 1.675,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 69.7876
+      }
+    },
+    {
+      "index": 15,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_021/case_021_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_021/case_021_video_part_002.mp4",
+      "label": "5",
+      "written_frames": 21039,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 21039,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 8.0052,
+        "detect_crop": 1.5285,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 9.5341
+      }
+    },
+    {
+      "index": 16,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_022/case_022_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_022/case_022_video_part_001.mp4",
+      "label": "5",
+      "written_frames": 927283,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 621.5,
+          "end": 2855.5
+        },
+        {
+          "start": 2883.5,
+          "end": 3390.5
+        },
+        {
+          "start": 3414.5,
+          "end": 3456.5
+        },
+        {
+          "start": 6720.5,
+          "end": 6759.5
+        },
+        {
+          "start": 8234.5,
+          "end": 10407.5
+        },
+        {
+          "start": 12437.5,
+          "end": 12508.5
+        },
+        {
+          "start": 12514.5,
+          "end": 12560.5
+        },
+        {
+          "start": 13789.5,
+          "end": 13918.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 927283,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 286.3817,
+        "detect_crop": 1.5608,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 287.9428
+      }
+    },
+    {
+      "index": 17,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_023/case_023_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_023/case_023_video_part_001.mp4",
+      "label": "5",
+      "written_frames": 604638,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 1744.5,
+          "end": 1790.5
+        },
+        {
+          "start": 7219.5,
+          "end": 7656.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 604638,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 214.0746,
+        "detect_crop": 1.4958,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 215.5707
+      }
+    },
+    {
+      "index": 18,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_025/case_025_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_025/case_025_video_part_001.mp4",
+      "label": "5",
+      "written_frames": 1190045,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 232.5,
+          "end": 3027.5
+        },
+        {
+          "start": 9307.5,
+          "end": 12858.5
+        },
+        {
+          "start": 14249.5,
+          "end": 14282.5
+        },
+        {
+          "start": 14285.5,
+          "end": 14311.5
+        },
+        {
+          "start": 15594.5,
+          "end": 15618.5
+        },
+        {
+          "start": 16728.5,
+          "end": 16787.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 1190045,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 343.2446,
+        "detect_crop": 1.5235,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 344.7685
+      }
+    },
+    {
+      "index": 19,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_026/case_026_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_026/case_026_video_part_002.mp4",
+      "label": "6",
+      "written_frames": 747028,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 288.5,
+          "end": 4782.5
+        },
+        {
+          "start": 4895.5,
+          "end": 4948.5
+        },
+        {
+          "start": 5001.5,
+          "end": 5054.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 747028,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 232.403,
+        "detect_crop": 1.4407,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 233.8441
+      }
+    },
+    {
+      "index": 20,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_027/case_027_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_027/case_027_video_part_001.mp4",
+      "label": "5",
+      "written_frames": 1098100,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 721.5,
+          "end": 3442.5
+        },
+        {
+          "start": 5229.5,
+          "end": 5231.5
+        },
+        {
+          "start": 5250.5,
+          "end": 5276.5
+        },
+        {
+          "start": 10945.5,
+          "end": 14042.5
+        },
+        {
+          "start": 15606.5,
+          "end": 15660.5
+        },
+        {
+          "start": 15678.5,
+          "end": 15711.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 1098100,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 324.2475,
+        "detect_crop": 1.4887,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 325.7365
+      }
+    },
+    {
+      "index": 21,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_027/case_027_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_027/case_027_video_part_002.mp4",
+      "label": "5",
+      "written_frames": 244465,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 125.5,
+          "end": 194.5
+        },
+        {
+          "start": 1929.5,
+          "end": 1981.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 244465,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 82.4973,
+        "detect_crop": 1.4242,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 83.9218
+      }
+    },
+    {
+      "index": 22,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_028/case_028_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_028/case_028_video_part_001.mp4",
+      "label": "5",
+      "written_frames": 1050133,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 507.5,
+          "end": 3350.5
+        },
+        {
+          "start": 3826.5,
+          "end": 3872.5
+        },
+        {
+          "start": 9248.5,
+          "end": 9310.5
+        },
+        {
+          "start": 11426.5,
+          "end": 13731.5
+        },
+        {
+          "start": 14113.5,
+          "end": 14155.5
+        },
+        {
+          "start": 15363.5,
+          "end": 15394.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 1050133,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 315.9188,
+        "detect_crop": 1.5236,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 317.4427
+      }
+    },
+    {
+      "index": 23,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_029/case_029_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_029/case_029_video_part_001.mp4",
+      "label": "5",
+      "written_frames": 515232,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 464.5,
+          "end": 498.5
+        },
+        {
+          "start": 1411.5,
+          "end": 2841.5
+        },
+        {
+          "start": 2976.5,
+          "end": 3441.5
+        },
+        {
+          "start": 4780.5,
+          "end": 4815.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 515232,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 147.3443,
+        "detect_crop": 1.0723,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 148.4169
+      }
+    },
+    {
+      "index": 24,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_030/case_030_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_030/case_030_video_part_002.mp4",
+      "label": "6",
+      "written_frames": 1489,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 1489,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 0.6427,
+        "detect_crop": 1.3524,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 1.9955
+      }
+    },
+    {
+      "index": 25,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_031/case_031_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_031/case_031_video_part_002.mp4",
+      "label": "5",
+      "written_frames": 52660,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 598.5,
+          "end": 877.6666666666666
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 52660,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 16.6251,
+        "detect_crop": 1.2222,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 17.8477
+      }
+    },
+    {
+      "index": 26,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_036/case_036_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_036/case_036_video_part_001.mp4",
+      "label": "5",
+      "written_frames": 1071849,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 1130.5,
+          "end": 3018.5
+        },
+        {
+          "start": 9566.5,
+          "end": 12573.5
+        },
+        {
+          "start": 12819.5,
+          "end": 12843.5
+        },
+        {
+          "start": 12849.5,
+          "end": 12887.5
+        },
+        {
+          "start": 16093.5,
+          "end": 16111.5
+        },
+        {
+          "start": 16125.5,
+          "end": 16168.5
+        },
+        {
+          "start": 17418.5,
+          "end": 17490.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 1071849,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 318.4179,
+        "detect_crop": 1.4595,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 319.8778
+      }
+    },
+    {
+      "index": 27,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_036/case_036_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_036/case_036_video_part_002.mp4",
+      "label": "5",
+      "written_frames": 302199,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 1936.5,
+          "end": 1994.5
+        },
+        {
+          "start": 3112.5,
+          "end": 3381.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 302199,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 102.5641,
+        "detect_crop": 1.3379,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 103.9023
+      }
+    },
+    {
+      "index": 28,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_037/case_037_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_037/case_037_video_part_002.mp4",
+      "label": "5",
+      "written_frames": 269612,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 783.5,
+          "end": 845.5
+        },
+        {
+          "start": 4198.5,
+          "end": 4493.533333333334
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 269612,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 98.4887,
+        "detect_crop": 1.6048,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 100.0938
+      }
+    },
+    {
+      "index": 29,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_039/case_039_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_039/case_039_video_part_002.mp4",
+      "label": "2",
+      "written_frames": 118570,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 118570,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 42.3053,
+        "detect_crop": 1.5035,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 43.8092
+      }
+    },
+    {
+      "index": 30,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_040/case_040_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_040/case_040_video_part_002.mp4",
+      "label": "5",
+      "written_frames": 291521,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 677.5,
+          "end": 705.5
+        },
+        {
+          "start": 2240.5,
+          "end": 2242.5
+        },
+        {
+          "start": 2548.5,
+          "end": 2550.5
+        },
+        {
+          "start": 2552.5,
+          "end": 2555.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 291521,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 105.1855,
+        "detect_crop": 1.4231,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 106.6089
+      }
+    },
+    {
+      "index": 31,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_041/case_041_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_041/case_041_video_part_001.mp4",
+      "label": "5",
+      "written_frames": 1134711,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 651.5,
+          "end": 2549.5
+        },
+        {
+          "start": 4183.5,
+          "end": 4214.5
+        },
+        {
+          "start": 10861.5,
+          "end": 13460.5
+        },
+        {
+          "start": 15670.5,
+          "end": 15733.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 1134711,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 189,
+      "crop_y": 43,
+      "crop_width": 902,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 343.3719,
+        "detect_crop": 1.4979,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 344.8702
+      }
+    },
+    {
+      "index": 32,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_042/case_042_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_042/case_042_video_part_001.mp4",
+      "label": "5",
+      "written_frames": 962949,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 571.5,
+          "end": 2054.5
+        },
+        {
+          "start": 8181.5,
+          "end": 9961.5
+        },
+        {
+          "start": 11570.5,
+          "end": 11657.5
+        },
+        {
+          "start": 11759.5,
+          "end": 11779.5
+        },
+        {
+          "start": 11782.5,
+          "end": 11790.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 962949,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 305.7437,
+        "detect_crop": 1.5042,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 307.2483
+      }
+    },
+    {
+      "index": 33,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_047/case_047_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_047/case_047_video_part_001.mp4",
+      "label": "5",
+      "written_frames": 977708,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 2639.5,
+          "end": 2642.5
+        },
+        {
+          "start": 9169.5,
+          "end": 11970.5
+        },
+        {
+          "start": 13373.5,
+          "end": 13441.5
+        },
+        {
+          "start": 13450.5,
+          "end": 13474.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 977708,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 304.0226,
+        "detect_crop": 1.4757,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 305.4986
+      }
+    },
+    {
+      "index": 34,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_048/case_048_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_048/case_048_video_part_002.mp4",
+      "label": "5",
+      "written_frames": 137974,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 137974,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 50.7065,
+        "detect_crop": 1.3234,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 52.0304
+      }
+    },
+    {
+      "index": 35,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_050/case_050_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_050/case_050_video_part_002.mp4",
+      "label": "5",
+      "written_frames": 244465,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 125.5,
+          "end": 194.5
+        },
+        {
+          "start": 1929.5,
+          "end": 1981.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 244465,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 82.6076,
+        "detect_crop": 1.4201,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 84.028
+      }
+    },
+    {
+      "index": 36,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_051/case_051_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_051/case_051_video_part_001.mp4",
+      "label": "5",
+      "written_frames": 1155299,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 862.5,
+          "end": 3196.5
+        },
+        {
+          "start": 10798.5,
+          "end": 13891.5
+        },
+        {
+          "start": 14318.5,
+          "end": 14340.5
+        },
+        {
+          "start": 16499.5,
+          "end": 16551.5
+        },
+        {
+          "start": 16561.5,
+          "end": 16594.5
+        },
+        {
+          "start": 17659.5,
+          "end": 17726.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 1155299,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 344.4173,
+        "detect_crop": 1.3453,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 345.763
+      }
+    },
+    {
+      "index": 37,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_051/case_051_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_051/case_051_video_part_002.mp4",
+      "label": "5",
+      "written_frames": 231674,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 1668.5,
+          "end": 1739.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 231674,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 80.4501,
+        "detect_crop": 1.5618,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 82.0123
+      }
+    },
+    {
+      "index": 38,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_052/case_052_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_052/case_052_video_part_001.mp4",
+      "label": "2",
+      "written_frames": 248089,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 2767.5,
+          "end": 2797.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 248089,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 68.667,
+        "detect_crop": 1.2272,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 69.8946
+      }
+    },
+    {
+      "index": 39,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_054/case_054_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_054/case_054_video_part_001.mp4",
+      "label": "5",
+      "written_frames": 997945,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 953.5,
+          "end": 2672.5
+        },
+        {
+          "start": 9369.5,
+          "end": 9410.5
+        },
+        {
+          "start": 9431.5,
+          "end": 9433.5
+        },
+        {
+          "start": 10172.5,
+          "end": 12256.5
+        },
+        {
+          "start": 13129.5,
+          "end": 13167.5
+        },
+        {
+          "start": 13211.5,
+          "end": 13222.5
+        },
+        {
+          "start": 16077.5,
+          "end": 16084.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 997945,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 308.875,
+        "detect_crop": 1.5091,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 310.3845
+      }
+    },
+    {
+      "index": 40,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_055/case_055_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_055/case_055_video_part_001.mp4",
+      "label": "1",
+      "written_frames": 977374,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 1172.5,
+          "end": 3692.5
+        },
+        {
+          "start": 3927.5,
+          "end": 4291.5
+        },
+        {
+          "start": 11183.5,
+          "end": 12802.5
+        },
+        {
+          "start": 12867.5,
+          "end": 12891.5
+        },
+        {
+          "start": 14223.5,
+          "end": 14281.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 977374,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 301.7803,
+        "detect_crop": 1.6337,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 303.4144
+      }
+    },
+    {
+      "index": 41,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_056/case_056_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_056/case_056_video_part_002.mp4",
+      "label": "5",
+      "written_frames": 319710,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 1704.5,
+          "end": 1800.5
+        },
+        {
+          "start": 2192.5,
+          "end": 2194.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 319710,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 116.2832,
+        "detect_crop": 1.7918,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 118.0754
+      }
+    },
+    {
+      "index": 42,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_060/case_060_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_060/case_060_video_part_001.mp4",
+      "label": "5",
+      "written_frames": 1112784,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 902.5,
+          "end": 3307.5
+        },
+        {
+          "start": 3547.5,
+          "end": 3566.5
+        },
+        {
+          "start": 9107.5,
+          "end": 9133.5
+        },
+        {
+          "start": 9662.5,
+          "end": 12457.5
+        },
+        {
+          "start": 15749.5,
+          "end": 15856.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 1112784,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 326.6994,
+        "detect_crop": 1.3697,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 328.0695
+      }
+    },
+    {
+      "index": 43,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_062/case_062_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_062/case_062_video_part_001.mp4",
+      "label": "1",
+      "written_frames": 338083,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 580.5,
+          "end": 623.5
+        },
+        {
+          "start": 5379.5,
+          "end": 5634.716666666666
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 338083,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 123.7733,
+        "detect_crop": 1.6029,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 125.3766
+      }
+    },
+    {
+      "index": 44,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_063/case_063_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_063/case_063_video_part_001.mp4",
+      "label": "5",
+      "written_frames": 1155138,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 580.5,
+          "end": 3528.5
+        },
+        {
+          "start": 3927.5,
+          "end": 3965.5
+        },
+        {
+          "start": 10710.5,
+          "end": 13818.5
+        },
+        {
+          "start": 14580.5,
+          "end": 14610.5
+        },
+        {
+          "start": 15083.5,
+          "end": 15138.5
+        },
+        {
+          "start": 17347.5,
+          "end": 17399.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 1155138,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 340.7497,
+        "detect_crop": 1.3079,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 342.0581
+      }
+    },
+    {
+      "index": 45,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_065/case_065_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_065/case_065_video_part_002.mp4",
+      "label": "5",
+      "written_frames": 273045,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 1096.5,
+          "end": 1214.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 273045,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 94.5882,
+        "detect_crop": 1.4585,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 96.0471
+      }
+    },
+    {
+      "index": 46,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_068/case_068_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_068/case_068_video_part_001.mp4",
+      "label": "5",
+      "written_frames": 923825,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 840.5,
+          "end": 2334.5
+        },
+        {
+          "start": 3398.5,
+          "end": 3420.5
+        },
+        {
+          "start": 6636.5,
+          "end": 7294.5
+        },
+        {
+          "start": 14028.5,
+          "end": 14054.5
+        },
+        {
+          "start": 14460.5,
+          "end": 14517.5
+        },
+        {
+          "start": 14526.5,
+          "end": 14537.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 923825,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 293.8224,
+        "detect_crop": 1.4819,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 295.3047
+      }
+    },
+    {
+      "index": 47,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_069/case_069_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_069/case_069_video_part_002.mp4",
+      "label": "5",
+      "written_frames": 167965,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 1084.5,
+          "end": 1095.5
+        },
+        {
+          "start": 1096.5,
+          "end": 1109.5
+        },
+        {
+          "start": 1110.5,
+          "end": 1134.5
+        },
+        {
+          "start": 1139.5,
+          "end": 1174.5
+        },
+        {
+          "start": 1175.5,
+          "end": 1178.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 167965,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 56.3743,
+        "detect_crop": 1.3325,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 57.7071
+      }
+    },
+    {
+      "index": 48,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_073/case_073_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_073/case_073_video_part_001.mp4",
+      "label": "5",
+      "written_frames": 1102498,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 614.5,
+          "end": 2926.5
+        },
+        {
+          "start": 3347.5,
+          "end": 3433.5
+        },
+        {
+          "start": 11990.5,
+          "end": 14157.5
+        },
+        {
+          "start": 14172.5,
+          "end": 14175.5
+        },
+        {
+          "start": 15879.5,
+          "end": 15938.5
+        },
+        {
+          "start": 17504.5,
+          "end": 17537.5
+        },
+        {
+          "start": 17597.5,
+          "end": 17634.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 1102498,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 189,
+      "crop_y": 43,
+      "crop_width": 902,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 330.531,
+        "detect_crop": 1.5145,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 332.0459
+      }
+    },
+    {
+      "index": 49,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_075/case_075_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_075/case_075_video_part_002.mp4",
+      "label": "5",
+      "written_frames": 194456,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 194456,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 71.0857,
+        "detect_crop": 1.4788,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 72.5648
+      }
+    },
+    {
+      "index": 50,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_076/case_076_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_076/case_076_video_part_001.mp4",
+      "label": "5",
+      "written_frames": 1040737,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 612.5,
+          "end": 2685.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 1040737,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 316.7959,
+        "detect_crop": 1.8384,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 318.6347
+      }
+    },
+    {
+      "index": 51,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_077/case_077_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_077/case_077_video_part_002.mp4",
+      "label": "5",
+      "written_frames": 284110,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 284110,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 105.0792,
+        "detect_crop": 1.5917,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 106.6712
+      }
+    },
+    {
+      "index": 52,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_078/case_078_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_078/case_078_video_part_001.mp4",
+      "label": "5",
+      "written_frames": 1061385,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 1492.5,
+          "end": 1517.5
+        },
+        {
+          "start": 13414.5,
+          "end": 13482.5
+        },
+        {
+          "start": 14107.5,
+          "end": 14143.5
+        },
+        {
+          "start": 17084.5,
+          "end": 17246.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 1061385,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 318.5292,
+        "detect_crop": 1.3926,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 319.9222
+      }
+    },
+    {
+      "index": 53,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_079/case_079_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_079/case_079_video_part_002.mp4",
+      "label": "5",
+      "written_frames": 300754,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 344.5,
+          "end": 401.5
+        },
+        {
+          "start": 1405.5,
+          "end": 1408.5
+        },
+        {
+          "start": 1411.5,
+          "end": 1415.5
+        },
+        {
+          "start": 1416.5,
+          "end": 1420.5
+        },
+        {
+          "start": 1425.5,
+          "end": 1638.5
+        },
+        {
+          "start": 1642.5,
+          "end": 1671.5
+        },
+        {
+          "start": 4798.5,
+          "end": 5012.566666666667
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 300754,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 97.6836,
+        "detect_crop": 1.4106,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 99.0945
+      }
+    },
+    {
+      "index": 54,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_080/case_080_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_080/case_080_video_part_001.mp4",
+      "label": "5",
+      "written_frames": 1117269,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 763.5,
+          "end": 3303.5
+        },
+        {
+          "start": 3745.5,
+          "end": 3807.5
+        },
+        {
+          "start": 10071.5,
+          "end": 12842.5
+        },
+        {
+          "start": 14279.5,
+          "end": 14311.5
+        },
+        {
+          "start": 14317.5,
+          "end": 14358.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 1117269,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 337.6531,
+        "detect_crop": 1.2604,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 338.9139
+      }
+    },
+    {
+      "index": 55,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_084/case_084_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_084/case_084_video_part_002.mp4",
+      "label": "5",
+      "written_frames": 267496,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 2430.5,
+          "end": 3145.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 267496,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 89.2342,
+        "detect_crop": 1.3673,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 90.6018
+      }
+    },
+    {
+      "index": 56,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_085/case_085_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_085/case_085_video_part_002.mp4",
+      "label": "5",
+      "written_frames": 518190,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 7099.5,
+          "end": 7405.5
+        },
+        {
+          "start": 8398.5,
+          "end": 8636.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 518190,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 184.9501,
+        "detect_crop": 1.4568,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 186.4072
+      }
+    },
+    {
+      "index": 57,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_086/case_086_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_086/case_086_video_part_001.mp4",
+      "label": "5",
+      "written_frames": 954996,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 277.5,
+          "end": 1737.5
+        },
+        {
+          "start": 3292.5,
+          "end": 3318.5
+        },
+        {
+          "start": 7711.5,
+          "end": 9627.5
+        },
+        {
+          "start": 9772.5,
+          "end": 9791.5
+        },
+        {
+          "start": 11445.5,
+          "end": 11499.5
+        },
+        {
+          "start": 12440.5,
+          "end": 12509.5
+        },
+        {
+          "start": 12620.5,
+          "end": 12654.5
+        },
+        {
+          "start": 15897.5,
+          "end": 15914.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 954996,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 297.9591,
+        "detect_crop": 1.314,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 299.2735
+      }
+    },
+    {
+      "index": 58,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_086/case_086_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_086/case_086_video_part_002.mp4",
+      "label": "5",
+      "written_frames": 93273,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 0.5,
+          "end": 4.5
+        },
+        {
+          "start": 6.5,
+          "end": 88.5
+        },
+        {
+          "start": 90.5,
+          "end": 92.5
+        },
+        {
+          "start": 94.5,
+          "end": 97.5
+        },
+        {
+          "start": 100.5,
+          "end": 110.5
+        },
+        {
+          "start": 112.5,
+          "end": 121.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 93273,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 33.2751,
+        "detect_crop": 1.5808,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 34.8563
+      }
+    },
+    {
+      "index": 59,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_087/case_087_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_087/case_087_video_part_001.mp4",
+      "label": "5",
+      "written_frames": 539927,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 539927,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 189,
+      "crop_y": 43,
+      "crop_width": 902,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 191.3523,
+        "detect_crop": 1.4528,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 192.8055
+      }
+    },
+    {
+      "index": 60,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_087/case_087_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_087/case_087_video_part_002.mp4",
+      "label": "5",
+      "written_frames": 344260,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 344260,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 101.5223,
+        "detect_crop": 1.4469,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 102.9696
+      }
+    },
+    {
+      "index": 61,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_088/case_088_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_088/case_088_video_part_002.mp4",
+      "label": "5",
+      "written_frames": 258179,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 131.5,
+          "end": 190.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 258179,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 92.7343,
+        "detect_crop": 1.2824,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 94.0171
+      }
+    },
+    {
+      "index": 62,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_091/case_091_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_091/case_091_video_part_001.mp4",
+      "label": "5",
+      "written_frames": 1185941,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 4128.5,
+          "end": 7092.5
+        },
+        {
+          "start": 7121.5,
+          "end": 7200.5
+        },
+        {
+          "start": 7404.5,
+          "end": 7423.5
+        },
+        {
+          "start": 12083.5,
+          "end": 12160.5
+        },
+        {
+          "start": 13787.5,
+          "end": 13821.5
+        },
+        {
+          "start": 15860.5,
+          "end": 16547.5
+        },
+        {
+          "start": 19626.5,
+          "end": 19631.5
+        },
+        {
+          "start": 19666.5,
+          "end": 19671.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 1185941,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 341.3206,
+        "detect_crop": 1.471,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 342.7919
+      }
+    },
+    {
+      "index": 63,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_091/case_091_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_091/case_091_video_part_002.mp4",
+      "label": "5",
+      "written_frames": 55991,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 55991,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 19.7281,
+        "detect_crop": 1.4213,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 21.1497
+      }
+    },
+    {
+      "index": 64,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_094/case_094_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_094/case_094_video_part_001.mp4",
+      "label": "5",
+      "written_frames": 1167464,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 544.5,
+          "end": 3548.5
+        },
+        {
+          "start": 15947.5,
+          "end": 15989.5
+        },
+        {
+          "start": 16938.5,
+          "end": 16995.5
+        },
+        {
+          "start": 17113.5,
+          "end": 17216.5
+        },
+        {
+          "start": 17255.5,
+          "end": 17269.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 1167464,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 189,
+      "crop_y": 43,
+      "crop_width": 902,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 344.6736,
+        "detect_crop": 1.2058,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 345.8798
+      }
+    },
+    {
+      "index": 65,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_094/case_094_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_094/case_094_video_part_002.mp4",
+      "label": "5",
+      "written_frames": 142962,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 219.5,
+          "end": 873.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 142962,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 46.9826,
+        "detect_crop": 1.4213,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 48.4043
+      }
+    },
+    {
+      "index": 66,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_095/case_095_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_095/case_095_video_part_002.mp4",
+      "label": "5",
+      "written_frames": 176271,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 1715.5,
+          "end": 1741.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 176271,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 63.3647,
+        "detect_crop": 1.6393,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 65.0044
+      }
+    },
+    {
+      "index": 67,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_096/case_096_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_096/case_096_video_part_001.mp4",
+      "label": "5",
+      "written_frames": 961916,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 400.5,
+          "end": 1668.5
+        },
+        {
+          "start": 6255.5,
+          "end": 6319.5
+        },
+        {
+          "start": 8549.5,
+          "end": 11605.5
+        },
+        {
+          "start": 12769.5,
+          "end": 12816.5
+        },
+        {
+          "start": 12903.5,
+          "end": 12965.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 961916,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 296.1401,
+        "detect_crop": 1.4414,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 297.5819
+      }
+    },
+    {
+      "index": 68,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_097/case_097_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_097/case_097_video_part_001.mp4",
+      "label": "5",
+      "written_frames": 994239,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 1164.5,
+          "end": 4268.5
+        },
+        {
+          "start": 4280.5,
+          "end": 4307.5
+        },
+        {
+          "start": 11504.5,
+          "end": 13228.5
+        },
+        {
+          "start": 13568.5,
+          "end": 13571.5
+        },
+        {
+          "start": 14157.5,
+          "end": 14171.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 994239,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 189,
+      "crop_y": 43,
+      "crop_width": 902,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 301.9321,
+        "detect_crop": 1.5144,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 303.4469
+      }
+    },
+    {
+      "index": 69,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_098/case_098_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_098/case_098_video_part_002.mp4",
+      "label": "5",
+      "written_frames": 265740,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 2523.5,
+          "end": 3111.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 265740,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 189,
+      "crop_y": 43,
+      "crop_width": 902,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 89.7335,
+        "detect_crop": 1.4791,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 91.2129
+      }
+    },
+    {
+      "index": 70,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_099/case_099_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_099/case_099_video_part_001.mp4",
+      "label": "5",
+      "written_frames": 776094,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 6968.5,
+          "end": 6971.5
+        },
+        {
+          "start": 6974.5,
+          "end": 6977.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 776094,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 194.9517,
+        "detect_crop": 1.1327,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 196.0847
+      }
+    },
+    {
+      "index": 71,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_100/case_100_video_part_001.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_100/case_100_video_part_001.mp4",
+      "label": "5",
+      "written_frames": 1191971,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 630.5,
+          "end": 3352.5
+        },
+        {
+          "start": 4797.5,
+          "end": 4819.5
+        },
+        {
+          "start": 11228.5,
+          "end": 13577.5
+        },
+        {
+          "start": 17521.5,
+          "end": 17584.5
+        },
+        {
+          "start": 18578.5,
+          "end": 18638.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 1191971,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 355.7943,
+        "detect_crop": 1.5389,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 357.3336
+      }
+    },
+    {
+      "index": 72,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_100/case_100_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_100/case_100_video_part_002.mp4",
+      "label": "5",
+      "written_frames": 320145,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 320145,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 121.2349,
+        "detect_crop": 1.5921,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 122.8274
+      }
+    },
+    {
+      "index": 73,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_101/case_101_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_101/case_101_video_part_002.mp4",
+      "label": "5",
+      "written_frames": 166423,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 949.5,
+          "end": 1195.5
+        },
+        {
+          "start": 1232.5,
+          "end": 1511.5
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 166423,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 54.2934,
+        "detect_crop": 1.3184,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 55.6122
+      }
+    },
+    {
+      "index": 74,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_102/case_102_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_102/case_102_video_part_002.mp4",
+      "label": "5",
+      "written_frames": 225980,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [
+        {
+          "start": 1381.5,
+          "end": 1559.5
+        },
+        {
+          "start": 2016.5,
+          "end": 2024.5
+        },
+        {
+          "start": 3599.5,
+          "end": 3766.3333333333335
+        }
+      ],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 225980,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 75.8329,
+        "detect_crop": 1.2465,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 77.0797
+      }
+    },
+    {
+      "index": 75,
+      "source_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_109/case_109_video_part_002.mp4",
+      "output_path": "/home/matteo/Desktop/vjepa2/data/surgvu/sample_videos/surgvu24/case_109/case_109_video_part_002.mp4",
+      "label": "5",
+      "written_frames": 129414,
+      "backend": "metadata_only",
+      "output_fps": 60.0,
+      "quality_mode": "metadata_only",
+      "encoding": {},
+      "black_sections_detected": [],
+      "black_sections_removed": [],
+      "black_sections_saved": [],
+      "black_duration_removed": 0,
+      "source_width": 1280,
+      "source_height": 720,
+      "source_fps": 60.0,
+      "source_frames": 129414,
+      "top_crop_pixels": 43,
+      "bottom_crop_pixels": 43,
+      "crop_x": 188,
+      "crop_y": 43,
+      "crop_width": 904,
+      "crop_height": 634,
+      "timings_seconds": {
+        "detect_black_sections": 46.5953,
+        "detect_crop": 1.5643,
+        "encode": 0.0,
+        "save_black_sections": 0.0,
+        "total": 48.16
+      }
+    }
+  ]
+}
