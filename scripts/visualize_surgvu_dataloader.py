@@ -170,6 +170,12 @@ def main() -> None:
         pin_mem=False,
         filter_short_videos=cfgs_data.get("filter_short_videos", False),
         filter_long_videos=filter_long_videos,
+        preprocess_metadata=cfgs_data.get("preprocess_metadata"),
+        use_preprocess_metadata=(
+            bool(cfgs_data.get("preprocess_metadata"))
+            if cfgs_data.get("use_preprocess_metadata") is None
+            else cfgs_data.get("use_preprocess_metadata")
+        ),
         persistent_workers=False,
     )
     sampler.set_epoch(0)

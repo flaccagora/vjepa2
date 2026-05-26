@@ -139,6 +139,10 @@ def main(args, resume_preempt=False):
     filter_long_videos = cfgs_data.get("filter_long_videos", int(1e9))
     if filter_long_videos is None:
         filter_long_videos = int(1e18)
+    preprocess_metadata = cfgs_data.get("preprocess_metadata")
+    use_preprocess_metadata = cfgs_data.get("use_preprocess_metadata")
+    if use_preprocess_metadata is None:
+        use_preprocess_metadata = bool(preprocess_metadata)
 
     # -- IMG DATA
     cfgs_img_data = args.get("img_data")
@@ -436,6 +440,8 @@ def main(args, resume_preempt=False):
         pin_mem=pin_mem,
         filter_short_videos=filter_short_videos,
         filter_long_videos=filter_long_videos,
+        preprocess_metadata=preprocess_metadata,
+        use_preprocess_metadata=use_preprocess_metadata,
         log_dir=None,
     )
     try:

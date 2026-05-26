@@ -4,6 +4,24 @@
 The script reads a VJEPA-style manifest, removes static black margins and a
 bottom overlay region from each video, writes cleaned videos, and emits a new
 manifest with the same labels.
+
+Metadata only preprocessing:
+    python scripts/preprocess_surgvu_videos.py \
+        --manifest data/surgvu/manifest_train.csv \
+        --out-dir data/surgvu_metadata_train \
+        --metadata-only \
+        --sample-frames 24 \
+        --remove-black-sections \
+        --black-detection-mode sampled \
+        --black-sample-fps 1 \
+        --black-sample-width 64 \
+        --black-sample-height 36 \
+        --black-sample-threshold 12 \
+        --black-pic-th 0.98 \
+        --black-section-padding 0.5 \
+        --workers 4 \
+        --overwrite
+
 """
 
 from __future__ import annotations
@@ -64,6 +82,11 @@ def parse_args() -> argparse.Namespace:
         "--max-output-frames",
         type=int,
         help="Debug option: write only the first N frames of each output video.",
+    )
+    parser.add_argument(
+        "--metadata-only",
+        action="store_true",
+        help="Only detect crop/black intervals and write metadata; do not encode cleaned videos.",
     )
     parser.add_argument("--preview-count", type=int, default=0, help="Write before/after contact sheets for first N videos.")
     parser.add_argument("--preview-frames", type=int, default=8, help="Frames per preview sheet.")
@@ -128,6 +151,65 @@ def parse_args() -> argparse.Namespace:
         choices=("copy", "encode"),
         default="copy",
         help="How to save black-section clips. copy is fastest/original stream; encode gives exact trim boundaries.",
+    )
+    parser.add_argument(
+        "--black-detection-mode",
+        choices=("sampled", "full"),
+        default="sampled",
+        help="Black-section detector. sampled is much faster; full uses ffmpeg blackdetect over the full stream.",
+    )
+    parser.add_argument(
+        "--black-sample-fps",
+        type=float,
+        default=1.0,
+        help="FPS for sampled black-section detection.",
+    )
+    parser.add_argument(
+        "--black-sample-width",
+        type=int,
+        default=64,
+        help="Width for downscaled sampled black-frame detection.",
+    )
+    parser.add_argument(
+        "--black-sample-height",
+        type=int,
+        default=36,
+        help="Height for downscaled sampled black-frame detection.",
+    )
+    parser.add_argument(
+        "--black-sample-filter-backend",
+        choices=("cpu", "cuda", "cvcuda"),
+        default="cpu",
+        help="Filter backend for sampled black detection. cuda uses ffmpeg scale_cuda; cvcuda uses CV-CUDA resize.",
+    )
+    parser.add_argument(
+        "--black-cvcuda-batch-size",
+        type=int,
+        default=64,
+        help="Sampled RGB frames per CVCUDA batch when --black-sample-filter-backend cvcuda.",
+    )
+    parser.add_argument(
+        "--black-sample-threshold",
+        type=int,
+        default=12,
+        help="Pixel threshold [0,255] for sampled black-frame detection.",
+    )
+    parser.add_argument(
+        "--black-refine-boundaries",
+        action="store_true",
+        help="Refine sampled black-section boundaries with a higher-FPS scan around candidate boundaries.",
+    )
+    parser.add_argument(
+        "--black-refine-fps",
+        type=float,
+        default=8.0,
+        help="FPS for boundary refinement when --black-refine-boundaries is set.",
+    )
+    parser.add_argument(
+        "--black-refine-window",
+        type=float,
+        default=2.0,
+        help="Seconds around each sampled candidate interval to rescan during boundary refinement.",
     )
     parser.add_argument(
         "--black-min-duration",
@@ -490,9 +572,15 @@ def source_matched_encoding(source: Path, crop: dict, args: argparse.Namespace) 
 
 
 def detect_black_sections_ffmpeg(source: Path, crop: dict, args: argparse.Namespace) -> list[tuple[float, float]]:
-    """Detect full-screen black intervals with ffmpeg blackdetect."""
     if not (args.remove_black_sections or args.save_black_sections):
         return []
+    if args.black_detection_mode == "sampled":
+        return detect_black_sections_sampled(source, crop, args)
+    return detect_black_sections_full(source, crop, args)
+
+
+def detect_black_sections_full(source: Path, crop: dict, args: argparse.Namespace) -> list[tuple[float, float]]:
+    """Detect full-screen black intervals with ffmpeg blackdetect."""
     if not shutil.which(args.ffmpeg_bin):
         raise RuntimeError(f"ffmpeg executable not found: {args.ffmpeg_bin}")
 
@@ -527,6 +615,268 @@ def detect_black_sections_ffmpeg(source: Path, crop: dict, args: argparse.Namesp
         end = float(match.group("end")) + args.black_section_padding
         intervals.append((start, end))
     return merge_intervals(intervals, duration=duration)
+
+
+def detect_black_sections_sampled(source: Path, crop: dict, args: argparse.Namespace) -> list[tuple[float, float]]:
+    """Detect black intervals by sampling tiny grayscale frames instead of scanning every frame."""
+    if not shutil.which(args.ffmpeg_bin):
+        raise RuntimeError(f"ffmpeg executable not found: {args.ffmpeg_bin}")
+
+    duration = None
+    if crop["source_fps"]:
+        duration = crop["source_frames"] / crop["source_fps"]
+
+    intervals = sampled_black_pass(
+        source=source,
+        args=args,
+        fps=args.black_sample_fps,
+        start_time=0.0,
+        duration=None,
+        min_duration=args.black_min_duration,
+        source_width=crop["source_width"],
+        source_height=crop["source_height"],
+    )
+
+    if args.black_refine_boundaries and intervals:
+        refined = []
+        for start, end in intervals:
+            scan_start = max(0.0, start - args.black_refine_window)
+            scan_end = end + args.black_refine_window
+            if duration is not None:
+                scan_end = min(duration, scan_end)
+            candidates = sampled_black_pass(
+                source=source,
+                args=args,
+                fps=args.black_refine_fps,
+                start_time=scan_start,
+                duration=max(0.0, scan_end - scan_start),
+                min_duration=0.0,
+                source_width=crop["source_width"],
+                source_height=crop["source_height"],
+            )
+            overlapping = [
+                (cand_start, cand_end)
+                for cand_start, cand_end in candidates
+                if cand_end > start and cand_start < end
+            ]
+            refined.extend(overlapping or [(start, end)])
+        intervals = merge_intervals(refined, duration=duration)
+
+    padded = [
+        (start - args.black_section_padding, end + args.black_section_padding)
+        for start, end in intervals
+        if end - start >= args.black_min_duration
+    ]
+    return merge_intervals(padded, duration=duration)
+
+
+def sampled_black_pass(
+    source: Path,
+    args: argparse.Namespace,
+    fps: float,
+    start_time: float = 0.0,
+    duration: float | None = None,
+    min_duration: float = 0.0,
+    source_width: int | None = None,
+    source_height: int | None = None,
+) -> list[tuple[float, float]]:
+    if args.black_sample_filter_backend == "cvcuda":
+        return sampled_black_pass_cvcuda(
+            source=source,
+            args=args,
+            fps=fps,
+            start_time=start_time,
+            duration=duration,
+            min_duration=min_duration,
+            source_width=source_width,
+            source_height=source_height,
+        )
+
+    width = int(args.black_sample_width)
+    height = int(args.black_sample_height)
+    frame_size = width * height
+    if fps <= 0:
+        raise ValueError("--black-sample-fps and --black-refine-fps must be positive")
+    if width <= 0 or height <= 0:
+        raise ValueError("--black-sample-width and --black-sample-height must be positive")
+
+    cmd = [
+        args.ffmpeg_bin,
+        "-hide_banner",
+        "-loglevel",
+        "error",
+    ]
+    if args.black_sample_filter_backend == "cuda":
+        cmd += ["-hwaccel", "cuda", "-hwaccel_output_format", "cuda"]
+    elif args.ffmpeg_hwaccel != "none":
+        cmd += ["-hwaccel", args.ffmpeg_hwaccel]
+    if start_time > 0:
+        cmd += ["-ss", f"{start_time:.6f}"]
+    if duration is not None:
+        cmd += ["-t", f"{duration:.6f}"]
+    if args.black_sample_filter_backend == "cuda":
+        video_filter = f"scale_cuda={width}:{height},hwdownload,format=gray,fps={fps:g}"
+    else:
+        video_filter = f"fps={fps:g},scale={width}:{height}:flags=fast_bilinear,format=gray"
+
+    cmd += [
+        "-i",
+        str(source),
+        "-vf",
+        video_filter,
+        "-an",
+        "-f",
+        "rawvideo",
+        "-",
+    ]
+    proc = subprocess.run(cmd, capture_output=True, check=False)
+    if proc.returncode != 0:
+        raise RuntimeError(f"sampled black detection failed for {source}:\n{proc.stderr.decode(errors='replace')}")
+
+    if not proc.stdout:
+        return []
+    raw = np.frombuffer(proc.stdout, dtype=np.uint8)
+    num_frames = raw.size // frame_size
+    if num_frames == 0:
+        return []
+    raw = raw[: num_frames * frame_size]
+    frames = raw.reshape(num_frames, frame_size)
+    black_fraction = (frames <= int(args.black_sample_threshold)).mean(axis=1)
+    is_black = black_fraction >= float(args.black_pic_th)
+
+    intervals = []
+    current_start = None
+    sample_period = 1.0 / fps
+    for i, black in enumerate(is_black):
+        t = start_time + i * sample_period
+        if black and current_start is None:
+            current_start = t
+        elif not black and current_start is not None:
+            end = t
+            if end - current_start >= min_duration:
+                intervals.append((current_start, end))
+            current_start = None
+    if current_start is not None:
+        end = start_time + num_frames * sample_period
+        if end - current_start >= min_duration:
+            intervals.append((current_start, end))
+    return intervals
+
+
+def _read_exact(pipe, size: int) -> bytes:
+    chunks = []
+    remaining = size
+    while remaining > 0:
+        chunk = pipe.read(remaining)
+        if not chunk:
+            break
+        chunks.append(chunk)
+        remaining -= len(chunk)
+    return b"".join(chunks)
+
+
+def sampled_black_pass_cvcuda(
+    source: Path,
+    args: argparse.Namespace,
+    fps: float,
+    start_time: float = 0.0,
+    duration: float | None = None,
+    min_duration: float = 0.0,
+    source_width: int | None = None,
+    source_height: int | None = None,
+) -> list[tuple[float, float]]:
+    if source_width is None or source_height is None:
+        raise ValueError("CVCUDA sampled detection requires source_width and source_height")
+    if fps <= 0:
+        raise ValueError("--black-sample-fps and --black-refine-fps must be positive")
+
+    try:
+        import torch
+        import cvcuda
+    except Exception as exc:
+        raise RuntimeError("CVCUDA backend requested but cvcuda/torch could not be imported") from exc
+    if not torch.cuda.is_available():
+        raise RuntimeError("CVCUDA backend requested but torch.cuda.is_available() is false")
+
+    out_width = int(args.black_sample_width)
+    out_height = int(args.black_sample_height)
+    if out_width <= 0 or out_height <= 0:
+        raise ValueError("--black-sample-width and --black-sample-height must be positive")
+
+    frame_size = int(source_width) * int(source_height) * 3
+    batch_size = max(1, int(args.black_cvcuda_batch_size))
+    cmd = [
+        args.ffmpeg_bin,
+        "-hide_banner",
+        "-loglevel",
+        "error",
+    ]
+    if args.ffmpeg_hwaccel != "none":
+        cmd += ["-hwaccel", args.ffmpeg_hwaccel]
+    if start_time > 0:
+        cmd += ["-ss", f"{start_time:.6f}"]
+    if duration is not None:
+        cmd += ["-t", f"{duration:.6f}"]
+    cmd += [
+        "-i",
+        str(source),
+        "-vf",
+        f"fps={fps:g},format=rgb24",
+        "-an",
+        "-f",
+        "rawvideo",
+        "-",
+    ]
+
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    assert proc.stdout is not None
+    intervals = []
+    current_start = None
+    sample_period = 1.0 / fps
+    frame_offset = 0
+
+    try:
+        while True:
+            chunk = _read_exact(proc.stdout, frame_size * batch_size)
+            if not chunk:
+                break
+            if len(chunk) % frame_size != 0:
+                raise RuntimeError(f"partial raw frame from ffmpeg while reading {source}")
+            num_frames = len(chunk) // frame_size
+            frames_np = np.frombuffer(chunk, dtype=np.uint8).reshape(
+                num_frames, int(source_height), int(source_width), 3
+            )
+            frames_torch = torch.as_tensor(frames_np, device="cuda")
+            cvcuda_in = cvcuda.as_tensor(frames_torch, "NHWC")
+            resized = cvcuda.resize(cvcuda_in, (num_frames, out_height, out_width, 3), cvcuda.Interp.LINEAR)
+            resized_torch = torch.utils.dlpack.from_dlpack(resized)
+            # Integer luma approximation: Y ~= 0.299R + 0.587G + 0.114B.
+            rgb = resized_torch.to(torch.int16)
+            gray = (77 * rgb[..., 0] + 150 * rgb[..., 1] + 29 * rgb[..., 2]) >> 8
+            black_fraction = (gray <= int(args.black_sample_threshold)).float().mean(dim=(1, 2))
+            is_black = (black_fraction >= float(args.black_pic_th)).detach().cpu().numpy().astype(bool)
+
+            for i, black in enumerate(is_black):
+                t = start_time + (frame_offset + i) * sample_period
+                if black and current_start is None:
+                    current_start = t
+                elif not black and current_start is not None:
+                    end = t
+                    if end - current_start >= min_duration:
+                        intervals.append((current_start, end))
+                    current_start = None
+            frame_offset += num_frames
+    finally:
+        stderr = proc.stderr.read() if proc.stderr is not None else b""
+        returncode = proc.wait()
+
+    if returncode != 0:
+        raise RuntimeError(f"CVCUDA sampled black detection ffmpeg failed for {source}:\n{stderr.decode(errors='replace')}")
+    if current_start is not None:
+        end = start_time + frame_offset * sample_period
+        if end - current_start >= min_duration:
+            intervals.append((current_start, end))
+    return intervals
 
 
 def ffmpeg_select_non_black_filter(black_sections: list[tuple[float, float]]) -> str | None:
@@ -828,9 +1178,13 @@ def process_one(task: tuple[int, str, str, str, str, argparse.Namespace, bool]) 
                 timings["save_black_sections"],
             )
 
-        cut_black_sections = black_sections if args.remove_black_sections else []
+        cut_black_sections = black_sections if (args.remove_black_sections and not args.metadata_only) else []
         with timed_step(timings, "encode"):
-            if use_ffmpeg and args.max_output_frames is None:
+            if args.metadata_only:
+                written = crop["source_frames"]
+                encoding_info = {}
+                backend_used = "metadata_only"
+            elif use_ffmpeg and args.max_output_frames is None:
                 written, encoding_info = process_video_ffmpeg(
                     idx,
                     source,
@@ -855,12 +1209,12 @@ def process_one(task: tuple[int, str, str, str, str, argparse.Namespace, bool]) 
         item = {
             "index": idx,
             "source_path": str(source),
-            "output_path": str(output),
+            "output_path": str(source if args.metadata_only else output),
             "label": label,
             "written_frames": written,
             "backend": backend_used,
             "output_fps": args.output_fps or crop["source_fps"],
-            "quality_mode": args.quality_mode if backend_used == "ffmpeg" else "opencv",
+            "quality_mode": args.quality_mode if backend_used == "ffmpeg" else backend_used,
             "encoding": encoding_info,
             "black_sections_detected": [{"start": start, "end": end} for start, end in black_sections],
             "black_sections_removed": [{"start": start, "end": end} for start, end in cut_black_sections],
@@ -868,7 +1222,7 @@ def process_one(task: tuple[int, str, str, str, str, argparse.Namespace, bool]) 
             "black_duration_removed": sum(end - start for start, end in cut_black_sections),
             **crop,
         }
-        if preview_str:
+        if preview_str and not args.metadata_only:
             with timed_step(timings, "preview"):
                 preview = Path(preview_str)
                 make_preview(source, output, crop, preview, args.preview_frames)

@@ -19,6 +19,8 @@ data:
   fps: 4
   filter_long_videos: null
   filter_short_videos: false
+  preprocess_metadata: null
+  use_preprocess_metadata: null
   num_workers: 2
   pin_mem: true
 data_aug:

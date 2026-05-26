@@ -2,7 +2,7 @@ app: vjepa_2_1
 nodes: 1
 tasks_per_node: 4
 cpus_per_task: 8
-mem_per_gpu: 120G
+mem_per_gpu: 60G
 exclusive: true
 folder: output/surgvu_slurm/vjepa2_1_vitb_384px_16f
 data:
@@ -20,6 +20,8 @@ data:
   fps: 4
   filter_long_videos: null
   filter_short_videos: false
+  preprocess_metadata: null
+  use_preprocess_metadata: null
   num_workers: 8
   pin_mem: true
 data_aug:

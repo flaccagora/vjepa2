@@ -3,11 +3,11 @@ nodes: 1
 tasks_per_node: 1
 cpus_per_task: 8
 mem_per_gpu: 24G
-folder: output/surgvu_full/vjepa2_1_vitb_384px_16f
+folder: output/surgvu/vjepa2_1_vitb_384px_16f
 data:
   dataset_type: VideoDataset
   datasets:
-  - data/surgvu_full/manifest_train.csv
+  - data/surgvu/manifest_train.csv
   datasets_weights:
   - 1.0
   batch_size: 8
@@ -19,6 +19,8 @@ data:
   fps: 4
   filter_long_videos: null
   filter_short_videos: false
+  preprocess_metadata: data/surgvu_metadata_train/preprocess_metadata.json
+  use_preprocess_metadata: true
   num_workers: 8
   pin_mem: true
 data_aug:

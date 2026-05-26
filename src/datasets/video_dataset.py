@@ -6,6 +6,7 @@
 import math
 import os
 import pathlib
+import json
 import warnings
 from logging import getLogger
 
@@ -51,6 +52,8 @@ def make_videodataset(
     persistent_workers=True,
     deterministic=True,
     log_dir=None,
+    preprocess_metadata=None,
+    use_preprocess_metadata=False,
 ):
     dataset = VideoDataset(
         data_paths=data_paths,
@@ -67,6 +70,8 @@ def make_videodataset(
         filter_long_videos=filter_long_videos,
         shared_transform=shared_transform,
         transform=transform,
+        preprocess_metadata=preprocess_metadata,
+        use_preprocess_metadata=use_preprocess_metadata,
     )
 
     log_dir = pathlib.Path(log_dir) if log_dir else None
@@ -137,6 +142,8 @@ class VideoDataset(torch.utils.data.Dataset):
         filter_short_videos=False,
         filter_long_videos=int(10**9),
         duration=None,  # duration in seconds
+        preprocess_metadata=None,
+        use_preprocess_metadata=False,
     ):
         self.data_paths = data_paths
         self.datasets_weights = datasets_weights
@@ -150,6 +157,8 @@ class VideoDataset(torch.utils.data.Dataset):
         self.filter_long_videos = filter_long_videos
         self.duration = duration
         self.fps = fps
+        self.use_preprocess_metadata = use_preprocess_metadata
+        self.preprocess_metadata = self._load_preprocess_metadata(preprocess_metadata) if use_preprocess_metadata else {}
 
         if sum([v is not None for v in (fps, duration, frame_step)]) != 1:
             raise ValueError(
@@ -209,6 +218,129 @@ class VideoDataset(torch.utils.data.Dataset):
 
         self.samples = samples
         self.labels = labels
+
+    @staticmethod
+    def _path_keys(path):
+        path = pathlib.Path(path)
+        keys = {str(path)}
+        try:
+            keys.add(str(path.resolve()))
+        except Exception:
+            pass
+        return keys
+
+    def _load_preprocess_metadata(self, metadata_path):
+        if metadata_path is None:
+            return {}
+        metadata_paths = metadata_path if isinstance(metadata_path, (list, tuple)) else [metadata_path]
+        metadata = {}
+        for path in metadata_paths:
+            with open(path, "r") as f:
+                doc = json.load(f)
+            for item in doc.get("videos", []):
+                value = item.get("source_path")
+                if value:
+                    for key in self._path_keys(value):
+                        metadata[key] = item
+        logger.info("Loaded preprocess metadata for %d video path keys", len(metadata))
+        return metadata
+
+    def _metadata_for_sample(self, sample):
+        if not self.preprocess_metadata:
+            return None
+        for key in self._path_keys(sample):
+            item = self.preprocess_metadata.get(key)
+            if item is not None:
+                return item
+        return None
+
+    @staticmethod
+    def _black_intervals_from_metadata(metadata):
+        if not metadata:
+            return []
+        intervals = metadata.get("black_sections_removed") or metadata.get("black_sections_detected") or []
+        result = []
+        for item in intervals:
+            try:
+                start = float(item["start"])
+                end = float(item["end"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            if end > start:
+                result.append((start, end))
+        return result
+
+    @staticmethod
+    def _valid_frame_segments(num_frames, video_fps, black_intervals):
+        if not black_intervals or not video_fps:
+            return None
+        black_frame_intervals = []
+        for start, end in black_intervals:
+            start_idx = max(0, int(math.floor(start * video_fps)))
+            end_idx = min(num_frames, int(math.ceil(end * video_fps)))
+            if end_idx > start_idx:
+                black_frame_intervals.append((start_idx, end_idx))
+        if not black_frame_intervals:
+            return None
+
+        black_frame_intervals.sort()
+        segments = []
+        cursor = 0
+        for start_idx, end_idx in black_frame_intervals:
+            if start_idx > cursor:
+                segments.append((cursor, start_idx))
+            cursor = max(cursor, end_idx)
+        if cursor < num_frames:
+            segments.append((cursor, num_frames))
+        return [(start, end) for start, end in segments if end > start]
+
+    def _select_valid_segment(self, valid_segments, clip_idx):
+        if self.random_clip_sampling:
+            lengths = np.array([end - start for start, end in valid_segments], dtype=np.float64)
+            probs = lengths / lengths.sum()
+            return valid_segments[int(np.random.choice(len(valid_segments), p=probs))]
+        segment_idx = min(
+            int(clip_idx * len(valid_segments) / max(1, self.num_clips)),
+            len(valid_segments) - 1,
+        )
+        return valid_segments[segment_idx]
+
+    def _sample_indices_from_segment(self, segment_start, segment_end, fpc, fstp, clip_len):
+        segment_len = max(1, segment_end - segment_start)
+        if segment_len > clip_len:
+            end_indx = clip_len
+            if self.random_clip_sampling:
+                end_indx = np.random.randint(clip_len, segment_len)
+            start_indx = end_indx - clip_len
+            indices = np.linspace(start_indx, end_indx, num=fpc)
+            indices = np.clip(indices, start_indx, end_indx - 1).astype(np.int64)
+        else:
+            sample_points = max(1, segment_len // fstp)
+            indices = np.linspace(0, segment_len, num=sample_points)
+            indices = np.concatenate(
+                (
+                    indices,
+                    np.ones(fpc - sample_points) * segment_len,
+                )
+            )
+            indices = np.clip(indices, 0, segment_len - 1).astype(np.int64)
+        return indices + segment_start
+
+    @staticmethod
+    def _apply_metadata_crop(buffer, metadata):
+        if not metadata:
+            return buffer
+        required = ("crop_x", "crop_y", "crop_width", "crop_height")
+        if not all(k in metadata for k in required):
+            return buffer
+        height, width = buffer.shape[1], buffer.shape[2]
+        x1 = max(0, int(metadata["crop_x"]))
+        y1 = max(0, int(metadata["crop_y"]))
+        x2 = min(width, x1 + max(1, int(metadata["crop_width"])))
+        y2 = min(height, y1 + max(1, int(metadata["crop_height"])))
+        if x2 <= x1 or y2 <= y1:
+            return buffer
+        return buffer[:, y1:y2, x1:x2, :].copy()
 
     def __getitem__(self, index):
         sample = self.samples[index]
@@ -290,6 +422,7 @@ class VideoDataset(torch.utils.data.Dataset):
         """Load video content using Decord"""
 
         fname = sample
+        metadata = self._metadata_for_sample(fname)
         if not os.path.exists(fname):
             warnings.warn(f"video path not found {fname=}")
             return [], None
@@ -305,6 +438,7 @@ class VideoDataset(torch.utils.data.Dataset):
             return [], None
 
         fstp = self.frame_step
+        video_fps = None
         if self.duration is not None or self.fps is not None:
             try:
                 video_fps = math.ceil(vr.get_avg_fps())
@@ -320,21 +454,47 @@ class VideoDataset(torch.utils.data.Dataset):
 
         assert fstp is not None and fstp > 0
         clip_len = int(fpc * fstp)
+        if video_fps is None:
+            try:
+                video_fps = float(vr.get_avg_fps())
+            except Exception as e:
+                logger.warning(e)
+                video_fps = None
 
-        if self.filter_short_videos and len(vr) < clip_len:
-            warnings.warn(f"skipping video of length {len(vr)}")
+        valid_segments = None
+        if metadata is not None:
+            valid_segments = self._valid_frame_segments(
+                num_frames=len(vr),
+                video_fps=video_fps,
+                black_intervals=self._black_intervals_from_metadata(metadata),
+            )
+        if valid_segments is not None and not valid_segments:
+            warnings.warn(f"skipping video with no valid non-black frames {fname=}")
+            return [], None
+
+        sample_len = len(vr)
+        max_segment_len = len(vr)
+        if valid_segments is not None:
+            sample_len = sum(end - start for start, end in valid_segments)
+            max_segment_len = max(end - start for start, end in valid_segments)
+
+        if self.filter_short_videos and max_segment_len < clip_len:
+            warnings.warn(f"skipping video with max valid segment length {max_segment_len}")
             return [], None
 
         vr.seek(0)  # Go to start of video before sampling frames
 
         # Partition video into equal sized segments and sample each clip
         # from a different segment
-        partition_len = len(vr) // self.num_clips
+        partition_len = max(1, sample_len // self.num_clips)
 
         all_indices, clip_indices = [], []
         for i in range(self.num_clips):
 
-            if partition_len > clip_len:
+            if valid_segments is not None:
+                segment_start, segment_end = self._select_valid_segment(valid_segments, i)
+                indices = self._sample_indices_from_segment(segment_start, segment_end, fpc, fstp, clip_len)
+            elif partition_len > clip_len:
                 # If partition_len > clip len, then sample a random window of
                 # clip_len frames within the segment
                 end_indx = clip_len
@@ -364,25 +524,28 @@ class VideoDataset(torch.utils.data.Dataset):
                 # If partition overlap is allowed and partition_len < clip_len
                 # then start_indx of segment i+1 will lie within segment i
                 else:
-                    sample_len = min(clip_len, len(vr)) - 1
-                    indices = np.linspace(0, sample_len, num=sample_len // fstp)
+                    sample_window_len = max(1, min(clip_len, sample_len)) - 1
+                    sample_points = max(1, sample_window_len // fstp)
+                    indices = np.linspace(0, sample_window_len, num=sample_points)
                     indices = np.concatenate(
                         (
                             indices,
-                            np.ones(fpc - sample_len // fstp) * sample_len,
+                            np.ones(fpc - sample_points) * sample_window_len,
                         )
                     )
-                    indices = np.clip(indices, 0, sample_len - 1).astype(np.int64)
+                    indices = np.clip(indices, 0, sample_window_len).astype(np.int64)
                     # --
                     clip_step = 0
-                    if len(vr) > clip_len:
-                        clip_step = (len(vr) - clip_len) // (self.num_clips - 1)
+                    if sample_len > clip_len and self.num_clips > 1:
+                        clip_step = (sample_len - clip_len) // (self.num_clips - 1)
                     indices = indices + i * clip_step
 
+            indices = np.clip(indices, 0, len(vr) - 1).astype(np.int64)
             clip_indices.append(indices)
             all_indices.extend(list(indices))
 
         buffer = vr.get_batch(all_indices).asnumpy()
+        buffer = self._apply_metadata_crop(buffer, metadata)
         return buffer, clip_indices
 
     def __len__(self):

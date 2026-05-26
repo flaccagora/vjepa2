@@ -1,6 +1,6 @@
 # SurgVU Offline Video Preprocessing
 
-This document describes the offline preprocessing step for SurgVU videos before VJEPA-2.1 training.
+This document describes the SurgVU preprocessing step for VJEPA-2.1 training.
 
 The goal is to remove deterministic non-surgical image regions before the training dataloader applies random crop and augmentation:
 
@@ -8,7 +8,7 @@ The goal is to remove deterministic non-surgical image regions before the traini
 - top fixed UI/header regions, if present
 - bottom text/UI overlays
 
-The cleaned videos are written to a separate directory. Original videos are not modified.
+The recommended fast path writes metadata only. The training dataloader then applies the deterministic crop and avoids black intervals while reading the original videos. Cleaned videos can still be materialized when you explicitly want a standalone cleaned dataset.
 
 ## Why Offline Preprocessing
 
@@ -23,7 +23,8 @@ Advantages:
 
 Cost:
 
-- Videos are re-encoded, so preprocessing needs disk space and time.
+- Metadata-only preprocessing still scans videos for crop/black-section detection, but it avoids the expensive re-encode step.
+- Full cleaned-video preprocessing re-encodes videos, so it needs disk space and time.
 - You should inspect preview sheets before launching a full preprocessing job.
 
 ## Script
@@ -43,6 +44,8 @@ Outputs:
 - new manifest under `<out-dir>/<input-manifest-name>`
 - crop metadata under `<out-dir>/preprocess_metadata.json`
 - optional before/after preview sheets under `<out-dir>/previews/`
+
+With `--metadata-only`, the manifest points back to the original videos and `<out-dir>/videos/` is not used.
 
 ## How Cropping Works
 
@@ -78,6 +81,7 @@ This is intentionally static per video. It avoids frame-by-frame geometry change
 | `--preview-frames` | Frames shown per preview sheet. | `8` |
 | `--limit` | Process only first N manifest rows. | Use for debugging |
 | `--max-output-frames` | Write only first N output frames. | Use for debugging only |
+| `--metadata-only` | Detect crop/black intervals and write metadata without encoding cleaned videos. | Recommended fast path |
 | `--overwrite` | Replace existing cleaned videos. | Use when retuning crop settings |
 | `--backend` | Video writing backend. `auto` uses `ffmpeg` if available, otherwise OpenCV. | `auto` |
 | `--workers` | Number of videos processed in parallel. | `4` on a 32 CPU node |
@@ -87,17 +91,26 @@ This is intentionally static per video. It avoids frame-by-frame geometry change
 | `--ffmpeg-preset` | libx264 speed preset. Faster presets reduce preprocessing time; target bitrate still controls output size in source mode. | `veryfast` |
 | `--nvenc-preset` | NVENC speed/quality preset when using an `*_nvenc` encoder. Lower preset numbers are faster, higher numbers are slower/higher quality. | `p4` |
 | `--nvenc-gpus` | Comma-separated GPU indices for NVENC, assigned by manifest index modulo the list. | `0,1,2,3` on a 4-GPU node |
-| `--ffmpeg-hwaccel` | Optional ffmpeg input hardware acceleration. Use only for benchmarking because crop/blackdetect still use CPU filters in the current ffmpeg build. | `none` |
+| `--ffmpeg-hwaccel` | Optional ffmpeg input hardware acceleration for ffmpeg passes, including sampled black detection. Benchmark it because CPU filters can require GPU/CPU frame transfers. | `none` |
 | `--quality-mode` | ffmpeg quality mode. `source` matches the original video's bits-per-pixel-frame after crop/FPS changes; `crf` uses `--crf`; `lossless` uses `-qp 0` and can be much larger. | `source` |
 | `--bitrate-scale` | Multiplier applied to source-matched bitrate. | `1.0` |
-| `--remove-black-sections` | Detect and remove full-screen black video intervals with ffmpeg `blackdetect`. | Enable if SurgVU clips contain black gaps |
+| `--remove-black-sections` | Detect and remove full-screen black video intervals. | Enable if SurgVU clips contain black gaps |
 | `--save-black-sections` | Save detected full-screen black intervals as separate clips. Can be used with or without removal. | Enable when auditing black gaps |
 | `--black-sections-dir` | Directory for saved black-section clips. | `<out-dir>/black_sections` |
 | `--black-section-save-mode` | Save mode for black-section clips. `copy` is fastest and preserves original stream packets; `encode` gives exact trim boundaries. | `copy` |
+| `--black-detection-mode` | Black-section detector. `sampled` decodes sparse tiny grayscale frames; `full` runs ffmpeg `blackdetect` over the full stream. | `sampled` |
+| `--black-sample-fps` | FPS for sampled black detection. | `1.0` for long black sections; `2.0` to `4.0` for shorter gaps |
+| `--black-sample-width` / `--black-sample-height` | Downscaled frame size for sampled detection. | `64` / `36` |
+| `--black-sample-filter-backend` | Filter backend for sampled black detection. `cuda` uses ffmpeg CUDA decode plus `scale_cuda`; `cvcuda` streams sampled RGB frames through CV-CUDA resize and a CUDA threshold reduction. | `cpu`; benchmark `cuda` and `cvcuda` on GPU nodes |
+| `--black-cvcuda-batch-size` | Sampled RGB frames processed per CV-CUDA batch. | `64` |
+| `--black-sample-threshold` | Pixel threshold `[0,255]` used by sampled detection. | `12` |
+| `--black-refine-boundaries` | Rescan candidate interval boundaries at higher FPS. Slower, but tighter boundaries. | Omit unless boundaries matter |
+| `--black-refine-fps` | FPS for boundary refinement. | `8.0` |
+| `--black-refine-window` | Seconds around each candidate interval to rescan. | `2.0` |
 | `--black-min-duration` | Minimum black interval duration to remove, in seconds. | `1.0` |
 | `--black-pix-th` | ffmpeg black pixel threshold. Lower is stricter black. | `0.10` |
 | `--black-pic-th` | Fraction of pixels that must be black for a frame to count as black. | `0.98` |
-| `--black-section-padding` | Seconds added before/after each detected black interval. | `0.0` |
+| `--black-section-padding` | Seconds added before/after each detected black interval. Useful with sampled detection. | `0.5` |
 | `--output-fps` | Optional output FPS. Set this to the training FPS only if you intentionally want preprocessing to remove frames the loader would otherwise skip. | `4` for the current VJEPA config; omit to keep source FPS |
 | `--crf` | libx264 quality for `--quality-mode crf`. Lower means higher quality and larger files. | `16` |
 | `--ffmpeg-threads` | Threads per ffmpeg process. `0` lets ffmpeg choose. | `2` to `4` when using multiple workers |
@@ -208,7 +221,46 @@ Some long SurgVU videos can contain full-screen black intervals. Use:
 --remove-black-sections
 ```
 
-This runs ffmpeg `blackdetect` before encoding each video, then removes the detected intervals in the crop/re-encode pass. To also archive those intervals separately, add:
+By default, this uses the fast sampled detector: ffmpeg decodes sparse frames, downsizes them to `64x36` grayscale, and classifies frames as black when at least `--black-pic-th` of pixels are below `--black-sample-threshold`. This is much faster than scanning every frame with ffmpeg `blackdetect`.
+
+Sampled detection supports two hardware-related paths.
+
+For hardware decode with the normal CPU filter chain, benchmark:
+
+```bash
+--ffmpeg-hwaccel cuda
+```
+
+For a CUDA ffmpeg filter chain that uses GPU decode and `scale_cuda`, benchmark:
+
+```bash
+--black-sample-filter-backend cuda
+```
+
+For a CV-CUDA backend, benchmark:
+
+```bash
+--black-sample-filter-backend cvcuda
+--black-cvcuda-batch-size 64
+```
+
+The CUDA backend uses:
+
+```text
+scale_cuda=<width>:<height>,hwdownload,format=gray,fps=<sample_fps>
+```
+
+Your current ffmpeg build does not expose `fps_cuda`, `format_cuda`, or `blackdetect_cuda`, so sampled detection cannot stay fully on GPU. The CUDA backend still downloads tiny downscaled frames to CPU for grayscale/raw analysis. On some videos this helps; on others GPU/CPU transfer overhead can erase the gain.
+
+The CV-CUDA backend currently uses ffmpeg for sparse RGB frame sampling, then moves batches to CUDA for CV-CUDA resize and GPU-side black-pixel reduction. This is useful for benchmarking on GPU nodes, but it still does not avoid video decode/pipe overhead because CV-CUDA is not a video decoder.
+
+Use the exact full-stream detector only when needed:
+
+```bash
+--black-detection-mode full
+```
+
+To archive detected intervals separately, add:
 
 ```bash
 --save-black-sections
@@ -249,13 +301,25 @@ Recommended starting settings:
 ```bash
 --remove-black-sections
 --save-black-sections
+--black-detection-mode sampled
+--black-sample-fps 1
+--black-sample-width 64
+--black-sample-height 36
+--black-sample-threshold 12
 --black-min-duration 1.0
---black-pix-th 0.10
 --black-pic-th 0.98
---black-section-padding 0.0
+--black-section-padding 0.5
 ```
 
-Raise `--black-min-duration` if short dark transitions are being removed. Lower `--black-pic-th` only if black screens contain logos or overlays and are not detected. Keep it high for safety because surgical scenes can naturally contain dark regions.
+Raise `--black-min-duration` if short dark transitions are being removed. Increase `--black-sample-fps` if you need to catch shorter interruptions. Lower `--black-pic-th` only if black screens contain logos or overlays and are not detected. Keep it high for safety because surgical scenes can naturally contain dark regions.
+
+Use boundary refinement when saved clips or exact removal boundaries matter:
+
+```bash
+--black-refine-boundaries
+--black-refine-fps 8
+--black-refine-window 2
+```
 
 `--black-section-save-mode copy` is fastest and keeps the original encoded stream for the black interval, but because video packet copying is keyframe-bound, clip boundaries can be slightly approximate. Use `--black-section-save-mode encode` if you need exact interval boundaries.
 
@@ -300,6 +364,50 @@ The metadata records per-video crop geometry:
 }
 ```
 
+## Metadata-Only Training Path
+
+This is the recommended path while tuning the dataset. It avoids re-encoding videos and lets the dataloader apply deterministic cleanup before VJEPA's random augmentations.
+
+Generate metadata:
+
+```bash
+python scripts/preprocess_surgvu_videos.py \
+  --manifest data/surgvu/manifest_train.csv \
+  --out-dir data/surgvu_metadata_train \
+  --metadata-only \
+  --sample-frames 24 \
+  --top-crop-pixels 24 \
+  --bottom-crop-pixels 72 \
+  --remove-black-sections \
+  --save-black-sections \
+  --black-detection-mode sampled \
+  --black-sample-fps 1 \
+  --black-section-padding 0.5 \
+  --black-min-duration 1.0 \
+  --workers 4 \
+  --overwrite
+```
+
+Then point training at the metadata manifest and metadata JSON:
+
+```yaml
+data:
+  datasets:
+  - data/surgvu_metadata_train/manifest_train.csv
+  preprocess_metadata: data/surgvu_metadata_train/preprocess_metadata.json
+  use_preprocess_metadata: true
+```
+
+At training time, `VideoDataset`:
+
+- treats each non-black span between black intervals as a separate valid segment
+- samples each clip wholly inside one valid segment, never across a black interruption
+- decodes source frames from the original video
+- applies the deterministic metadata crop before VJEPA random resized crop/augmentation
+- returns source frame indices from the original video, so dataloader previews still show where frames came from
+
+If you set only `--save-black-sections` and omit `--remove-black-sections`, metadata is still sufficient for training-time black-interval avoidance because detected intervals are recorded in `black_sections_detected`.
+
 ## Tuning Top and Bottom Crops
 
 Use ratio controls for a first pass:
@@ -323,7 +431,7 @@ Once you know the exact overlay height, prefer pixel controls:
 
 Pixel controls are easier to reproduce across runs. Ratio controls are more robust if you mix resolutions.
 
-## Full Training Preprocessing
+## Full Cleaned-Video Preprocessing
 
 After previews look correct:
 
@@ -345,6 +453,9 @@ python scripts/preprocess_surgvu_videos.py \
   --ffmpeg-preset veryfast \
   --remove-black-sections \
   --save-black-sections \
+  --black-detection-mode sampled \
+  --black-sample-fps 1 \
+  --black-section-padding 0.5 \
   --black-min-duration 1.0 \
   --output-fps 4
 ```
@@ -367,6 +478,9 @@ python scripts/preprocess_surgvu_videos.py \
   --ffmpeg-preset veryfast \
   --remove-black-sections \
   --save-black-sections \
+  --black-detection-mode sampled \
+  --black-sample-fps 1 \
+  --black-section-padding 0.5 \
   --black-min-duration 1.0 \
   --output-fps 4 \
   --overwrite
