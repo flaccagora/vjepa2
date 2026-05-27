@@ -4,6 +4,8 @@
 This uses the same VideoDataset, data augmentations, temporal sampling, and mask
 collator path as app/vjepa_2_1/train.py, then writes denormalized frame grids so
 the training input can be inspected before launching long cluster jobs.
+
+python scripts/visualize_surgvu_dataloader.py --config configs/train_2_1/vitb16/surgvu-finetune-384px-16f.yaml --num-batches 5 --max-samples 4 --frames-per-row 8 --batch-size 4 --num-workers 0 --seed 239 --disable-augment
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ from pathlib import Path
 import numpy as np
 import torch
 import yaml
+from decord import VideoReader, cpu
 from PIL import Image, ImageDraw
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -107,6 +110,45 @@ def summarize_masks(masks_enc: list[torch.Tensor], masks_pred: list[torch.Tensor
     return summary
 
 
+def unwrap_dataset(dataset):
+    """Return the underlying dataset when optional monitoring wrappers are used."""
+    while hasattr(dataset, "dataset"):
+        dataset = dataset.dataset
+    return dataset
+
+
+def sample_fpc(dataset, index: int) -> int | None:
+    if not hasattr(dataset, "per_dataset_indices") or not hasattr(dataset, "dataset_fpcs"):
+        return None
+    dataset_idx, _ = dataset.per_dataset_indices[index]
+    return int(dataset.dataset_fpcs[dataset_idx])
+
+
+def group_batch_indices_by_fpc(dataset, batch_indices: list[int], fpc_order: list[int]) -> list[list[int]]:
+    grouped = {fpc: [] for fpc in fpc_order}
+    for index in batch_indices:
+        fpc = sample_fpc(dataset, index)
+        if fpc in grouped:
+            grouped[fpc].append(index)
+    return [grouped[fpc] for fpc in fpc_order if grouped[fpc]]
+
+
+def get_video_fps(path: str, cache: dict[str, float | None]) -> float | None:
+    if path not in cache:
+        try:
+            vr = VideoReader(path, num_threads=1, ctx=cpu(0))
+            cache[path] = float(vr.get_avg_fps())
+        except Exception:
+            cache[path] = None
+    return cache[path]
+
+
+def frame_times_seconds(frame_indices: list[int], video_fps: float | None) -> list[float | None]:
+    if not video_fps or video_fps <= 0:
+        return [None for _ in frame_indices]
+    return [round(index / video_fps, 6) for index in frame_indices]
+
+
 def main() -> None:
     args = parse_args()
     seed_everything(args.seed)
@@ -179,6 +221,10 @@ def main() -> None:
         persistent_workers=False,
     )
     sampler.set_epoch(0)
+    dataset = unwrap_dataset(loader.dataset)
+    sampler_indices = list(iter(sampler))
+    fpc_order = list(mask_collator.mask_generators.keys())
+    video_fps_cache: dict[str, float | None] = {}
 
     manifest = {
         "config": str(args.config),
@@ -196,10 +242,13 @@ def main() -> None:
     saved = 0
     for batch_idx in range(args.num_batches):
         batch = next(iterator)
+        batch_indices = sampler_indices[batch_idx * batch_size : (batch_idx + 1) * batch_size]
+        grouped_source_indices = group_batch_indices_by_fpc(dataset, batch_indices, fpc_order)
         for fpc_group_idx, fpc_sample in enumerate(batch):
             udata, masks_enc, masks_pred = fpc_sample
             clip_list, labels, clip_indices = udata
             mask_summary = summarize_masks(masks_enc, masks_pred)
+            source_indices = grouped_source_indices[fpc_group_idx] if fpc_group_idx < len(grouped_source_indices) else []
 
             for clip_id, clips in enumerate(clip_list):
                 batch_count = min(clips.shape[0], args.max_samples)
@@ -208,6 +257,10 @@ def main() -> None:
                     frames = denormalize_clip(clip)
                     src_indices = clip_indices[clip_id][sample_idx].detach().cpu().numpy().astype(int).tolist()
                     label = int(labels[sample_idx].item()) if torch.is_tensor(labels[sample_idx]) else int(labels[sample_idx])
+                    dataset_index = int(source_indices[sample_idx]) if sample_idx < len(source_indices) else None
+                    source_video_path = str(dataset.samples[dataset_index]) if dataset_index is not None else None
+                    source_video_fps = get_video_fps(source_video_path, video_fps_cache) if source_video_path else None
+                    source_frame_times = frame_times_seconds(src_indices, source_video_fps)
 
                     sheet = make_contact_sheet(frames, src_indices, frames_per_row=args.frames_per_row)
                     filename = (
@@ -223,9 +276,15 @@ def main() -> None:
                             "fpc_group": fpc_group_idx,
                             "clip_id": clip_id,
                             "sample_idx": sample_idx,
+                            "dataset_index": dataset_index,
                             "label": label,
                             "tensor_shape": list(clip.shape),
+                            "source_video_path": source_video_path,
+                            "source_video_fps": source_video_fps,
                             "source_frame_indices": src_indices,
+                            "source_frame_times_seconds": source_frame_times,
+                            "source_preview_start_seconds": source_frame_times[0] if source_frame_times else None,
+                            "source_preview_end_seconds": source_frame_times[-1] if source_frame_times else None,
                             "masks": mask_summary,
                         }
                     )
