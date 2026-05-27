@@ -20,8 +20,8 @@ data:
   fps: 4
   filter_long_videos: null
   filter_short_videos: false
-  preprocess_metadata: null
-  use_preprocess_metadata: null
+  preprocess_metadata: data/surgvu_metadata_train/preprocess_metadata.json
+  use_preprocess_metadata: true
   num_workers: 8
   pin_mem: true
 data_aug:
@@ -120,3 +120,10 @@ optimization:
   start_lr: 1.0e-06
   warmup: 2
   weight_decay: 0.04
+wandb:
+  enable: true
+  project: vjepa2
+  name: run-001
+  mode: offline
+  log_freq: 1
+  strict: true

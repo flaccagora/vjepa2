@@ -91,21 +91,23 @@ class Trainer:
         )
 
 
-def copy_code_folder(code_folder, ignore_patterns, ignore_paths):
+def copy_code_folder(code_folder, ignore_patterns, ignore_paths, refresh_existing=True):
     path_to_node_folder = {}
 
     for path in ignore_paths:
         split_path = path.split("/")
         base_path = "/".join(split_path[:-1])
         node_folder = split_path[-1]
-        path_to_node_folder[base_path] = node_folder
+        path_to_node_folder.setdefault(base_path, []).append(node_folder)
 
     def ignore_func(path, names):
-        ignore_list = ignore_patterns
+        ignore_list = list(ignore_patterns)
         if path in path_to_node_folder.keys():
-            ignore_list.append(path_to_node_folder[path])
+            ignore_list.extend(path_to_node_folder[path])
         return ignore_list
 
+    if os.path.exists(code_folder) and refresh_existing:
+        shutil.rmtree(code_folder)
     if not os.path.exists(code_folder):
         shutil.copytree(".", code_folder, ignore=ignore_func)
 
@@ -148,7 +150,13 @@ def launch_app_with_parsed_args(
         "__pycache__",
         ".vscode",
         ".git",
+        ".agents",
+        ".codex",
+        ".venv",
         "core",
+        "checkpoints",
+        "data",
+        "output",
     ]
     ignore_paths = [
         "./evals/ava/alphaction/data",

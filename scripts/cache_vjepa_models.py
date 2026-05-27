@@ -126,6 +126,14 @@ def absolutize_config_paths(config: dict, base_dir: Path) -> dict:
     data = config.get("data", {})
     if data.get("datasets"):
         data["datasets"] = [resolve_local_path(path, base_dir) for path in data["datasets"]]
+    if data.get("preprocess_metadata"):
+        preprocess_metadata = data["preprocess_metadata"]
+        if isinstance(preprocess_metadata, (list, tuple)):
+            data["preprocess_metadata"] = [
+                resolve_local_path(path, base_dir) for path in preprocess_metadata
+            ]
+        else:
+            data["preprocess_metadata"] = resolve_local_path(preprocess_metadata, base_dir)
 
     img_data = config.get("img_data", {})
     if img_data.get("datasets"):
