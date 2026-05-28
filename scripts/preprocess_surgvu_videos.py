@@ -7,8 +7,8 @@ manifest with the same labels.
 
 Metadata only preprocessing:
     python scripts/preprocess_surgvu_videos.py \
-        --manifest data/surgvu/manifest_train.csv \
-        --out-dir data/surgvu_metadata_train \
+        --manifest data/surgvu_metadata/manifest_all.csv \
+        --out-dir surgvu_metadata_train \
         --metadata-only \
         --sample-frames 24 \
         --remove-black-sections \
@@ -17,9 +17,9 @@ Metadata only preprocessing:
         --black-sample-width 64 \
         --black-sample-height 36 \
         --black-sample-threshold 12 \
-        --black-pic-th 0.98 \
+        --black-pic-th 0.95 \
         --black-section-padding 0.5 \
-        --workers 4 \
+        --workers 1 \
         --overwrite
 
 """

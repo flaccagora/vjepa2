@@ -342,10 +342,10 @@ If the full videos are already extracted:
 conda activate vjepa2-312
 
 python scripts/prepare_surgvu.py \
-  --videos-root /path/to/extracted/surgvu/videos \
+  --videos-root data/surgvu/sample_videos \
   --labels-zip data/surgvu24_labels_updated_v2.zip \
-  --out-dir data/surgvu \
-  --val-fraction 0.1 \
+  --out-dir data/surgvu_metadata \
+  --val-fraction 0.0 \
   --seed 239
 ```
 

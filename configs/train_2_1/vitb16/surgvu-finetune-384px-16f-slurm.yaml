@@ -128,3 +128,11 @@ wandb:
   mode: offline
   log_freq: 1
   strict: true
+  pca:
+    enable: true
+    log_freq: 100
+    max_samples: 1
+    max_pca_tokens: 50000
+    encoder: target_encoder
+    overlay: false
+    alpha: 0.55

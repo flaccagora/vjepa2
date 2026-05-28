@@ -3,12 +3,46 @@
 
 Examples:
 
+  # First cache the pretrained checkpoint you want to visualize.
+  python scripts/cache_vjepa_models.py --model vjepa2_1_vitb
+  python scripts/cache_vjepa_models.py --model vjepa2_1_vitl
+  python scripts/cache_vjepa_models.py --model vjepa2_1_vitg
+  python scripts/cache_vjepa_models.py --model vjepa2_1_vitG
+
   # Pretrained V-JEPA 2.1 ViT-B on one PNG/JPEG image.
   python scripts/visualize_vjepa2_1_pca.py \
     --config configs/train_2_1/vitb16/surgvu-finetune-384px-16f.yaml \
+    --model-name vit_base \
     --checkpoint checkpoints/vjepa2_1_vitb_dist_vitG_384.pt \
-    --images path/to/image.jpg \
-    --out-dir output/vjepa2_1_pca_pretrained
+    --images data/cat.jpg \
+    --out-dir output/vjepa2_1_pca_vitb
+
+  # Pretrained V-JEPA 2.1 ViT-L on one PNG/JPEG image.
+  python scripts/visualize_vjepa2_1_pca.py \
+    --config configs/train_2_1/vitl16/pretrain-256px-16f.yaml \
+    --model-name vit_large \
+    --crop-size 384 \
+    --checkpoint checkpoints/vjepa2_1_vitl_dist_vitG_384.pt \
+    --images data/cat.jpg \
+    --out-dir output/vjepa2_1_pca_vitl
+
+  # Pretrained V-JEPA 2.1 ViT-g on one PNG/JPEG image.
+  python scripts/visualize_vjepa2_1_pca.py \
+    --config configs/train_2_1/vitg16/pretrain-256px-16f.yaml \
+    --model-name vit_giant_xformers \
+    --crop-size 384 \
+    --checkpoint checkpoints/vjepa2_1_vitg_384.pt \
+    --images data/cat.jpg \
+    --out-dir output/vjepa2_1_pca_vitg
+
+  # Pretrained V-JEPA 2.1 ViT-G on one PNG/JPEG image.
+  python scripts/visualize_vjepa2_1_pca.py \
+    --config configs/train_2_1/vitG16/pretrain-256px-16f.yaml \
+    --model-name vit_gigantic_xformers \
+    --crop-size 384 \
+    --checkpoint checkpoints/vjepa2_1_vitG_384.pt \
+    --images data/cat.jpg \
+    --out-dir output/vjepa2_1_pca_vitG
 
   # Fine-tuned SurgVU checkpoint on samples from the SurgVU manifest.
   python scripts/visualize_vjepa2_1_pca.py \
@@ -21,9 +55,9 @@ Examples:
   # Side-by-side PCA maps for the same image/video frames across models.
   python scripts/visualize_vjepa2_1_pca.py \
     --compare \
-    --compare-pretrained vjepa2_1_vitb vjepa2_1_vitg \
+    --compare-pretrained vjepa2_1_vitb vjepa2_1_vitg vjepa2_1_vitG \
     --checkpoint output/surgvu_slurm/vjepa2_1_vitb_384px_16f/latest.pth.tar \
-    --images path/to/image.jpg \
+    --images data/cat.jpg \
     --out-dir output/vjepa2_1_pca_compare
 """
 
@@ -166,7 +200,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--crop-size", type=int, default=None, help="Override config data.crop_size.")
     parser.add_argument("--patch-size", type=int, default=None, help="Override config data.patch_size.")
     parser.add_argument("--tubelet-size", type=int, default=None, help="Override config data.tubelet_size.")
-    parser.add_argument("--alpha", type=float, default=0.55, help="PCA overlay opacity.")
+    parser.add_argument("--overlay", action="store_true", help="Include input/PCA overlay columns in sheets.")
+    parser.add_argument("--alpha", type=float, default=0.55, help="PCA overlay opacity (used with --overlay).")
     parser.add_argument(
         "--pca-scope",
         choices=["batch", "sample"],
@@ -276,6 +311,25 @@ def compare_model_specs(args: argparse.Namespace, cfg: dict) -> list[ModelSpec]:
     return specs
 
 
+def config_frame_counts(cfg: dict) -> list[int]:
+    frame_counts = cfg.get("data", {}).get("dataset_fpcs") or []
+    return [int(value) for value in frame_counts]
+
+
+def model_num_frames(cfg: dict, args: argparse.Namespace) -> int:
+    frame_counts = config_frame_counts(cfg)
+    if args.num_frames is not None:
+        frame_counts.append(int(args.num_frames))
+    return max(frame_counts or [16])
+
+
+def sample_num_frames(cfg: dict, args: argparse.Namespace) -> int:
+    if args.num_frames is not None:
+        return int(args.num_frames)
+    frame_counts = config_frame_counts(cfg)
+    return frame_counts[0] if frame_counts else 16
+
+
 def build_encoder(
     cfg: dict,
     args: argparse.Namespace,
@@ -288,7 +342,7 @@ def build_encoder(
     crop_size = args.crop_size or data_cfg.get("crop_size", 384)
     patch_size = args.patch_size or data_cfg.get("patch_size", 16)
     tubelet_size = args.tubelet_size or data_cfg.get("tubelet_size", 2)
-    num_frames = max(data_cfg.get("dataset_fpcs") or [args.num_frames or 16])
+    num_frames = model_num_frames(cfg, args)
 
     if model_name not in video_vit.__dict__:
         raise SystemExit(f"Unknown V-JEPA 2.1 model_name: {model_name}")
@@ -420,12 +474,13 @@ def manifest_video_paths(path: Path, start: int, count: int) -> list[Path]:
 
 
 def collect_samples(args: argparse.Namespace, cfg: dict) -> list[Sample]:
-    data_cfg = cfg.get("data", {})
-    num_frames = args.num_frames or int((data_cfg.get("dataset_fpcs") or [16])[0])
+    num_frames = sample_num_frames(cfg, args)
     explicit_indices = parse_frame_indices(args.frame_indices)
     samples: list[Sample] = []
 
     for image_path in args.images:
+        if image_path.suffix.lower() not in IMAGE_SUFFIXES:
+            raise SystemExit(f"Unsupported image suffix: {image_path}")
         samples.append(Sample(name=safe_stem(str(image_path)), frames=[Image.open(image_path).convert("RGB")], source=str(image_path)))
 
     if args.video is not None:
@@ -506,15 +561,24 @@ def overlay(raw: Image.Image, pca: Image.Image, alpha: float) -> Image.Image:
     return Image.blend(raw.convert("RGB"), pca.resize(raw.size, Image.Resampling.BILINEAR).convert("RGB"), alpha)
 
 
-def make_contact_sheet(raw_frames: list[Image.Image], pca_maps: torch.Tensor, tubelet_size: int, alpha: float, title: str) -> Image.Image:
+def make_contact_sheet(
+    raw_frames: list[Image.Image],
+    pca_maps: torch.Tensor,
+    tubelet_size: int,
+    alpha: float,
+    title: str,
+    include_overlay: bool,
+) -> Image.Image:
     tile_w, tile_h = raw_frames[0].size
     label_h = 22
     rows = pca_maps.shape[0]
-    cols = 3
+    headers = ["input", "PCA RGB"]
+    if include_overlay:
+        headers.append("overlay")
+    cols = len(headers)
     canvas = Image.new("RGB", (cols * tile_w, rows * (tile_h + label_h) + label_h), color=(18, 18, 18))
     draw = ImageDraw.Draw(canvas)
     draw.text((6, 4), title, fill=(240, 240, 240))
-    headers = ["input", "PCA RGB", "overlay"]
     for col, header in enumerate(headers):
         draw.text((col * tile_w + 6, label_h + 3), header, fill=(240, 240, 240))
 
@@ -522,9 +586,11 @@ def make_contact_sheet(raw_frames: list[Image.Image], pca_maps: torch.Tensor, tu
         raw_idx = 0 if len(raw_frames) == 1 else min(len(raw_frames) - 1, int(round((t + 0.5) * tubelet_size - 0.5)))
         raw = raw_frames[raw_idx]
         pca = to_uint8_image(pca_maps[t].numpy()).resize(raw.size, Image.Resampling.BILINEAR)
-        over = overlay(raw, pca, alpha)
+        images = [raw, pca]
+        if include_overlay:
+            images.append(overlay(raw, pca, alpha))
         y = label_h + t * (tile_h + label_h) + label_h
-        for col, image in enumerate([raw, pca, over]):
+        for col, image in enumerate(images):
             canvas.paste(image, (col * tile_w, y))
         draw.text((6, y + tile_h + 3), f"feature_t={t} input_frame={raw_idx}", fill=(230, 230, 230))
     return canvas
@@ -536,19 +602,27 @@ def make_compare_sheet(
     tubelet_size: int,
     alpha: float,
     title: str,
+    include_overlay: bool,
 ) -> Image.Image:
     tile_w, tile_h = raw_frames[0].size
     label_h = 24
     rows = max(pca_maps.shape[0] for _, pca_maps in model_maps)
-    cols = 1 + len(model_maps) * 2
+    if include_overlay:
+        cols = 1 + len(model_maps) * 2
+    else:
+        cols = 1 + len(model_maps)
     canvas = Image.new("RGB", (cols * tile_w, rows * (tile_h + label_h) + label_h), color=(18, 18, 18))
     draw = ImageDraw.Draw(canvas)
     draw.text((6, 4), title, fill=(240, 240, 240))
     draw.text((6, label_h + 3), "input", fill=(240, 240, 240))
     for model_idx, (label, _) in enumerate(model_maps):
-        pca_col = 1 + model_idx * 2
-        draw.text((pca_col * tile_w + 6, label_h + 3), f"{label} PCA", fill=(240, 240, 240))
-        draw.text(((pca_col + 1) * tile_w + 6, label_h + 3), f"{label} overlay", fill=(240, 240, 240))
+        if include_overlay:
+            pca_col = 1 + model_idx * 2
+            draw.text((pca_col * tile_w + 6, label_h + 3), f"{label} PCA", fill=(240, 240, 240))
+            draw.text(((pca_col + 1) * tile_w + 6, label_h + 3), f"{label} overlay", fill=(240, 240, 240))
+        else:
+            pca_col = 1 + model_idx
+            draw.text((pca_col * tile_w + 6, label_h + 3), f"{label} PCA", fill=(240, 240, 240))
 
     for t in range(rows):
         raw_idx = 0 if len(raw_frames) == 1 else min(len(raw_frames) - 1, int(round((t + 0.5) * tubelet_size - 0.5)))
@@ -558,10 +632,14 @@ def make_compare_sheet(
         for model_idx, (_, pca_maps) in enumerate(model_maps):
             map_idx = min(t, pca_maps.shape[0] - 1)
             pca = to_uint8_image(pca_maps[map_idx].numpy()).resize(raw.size, Image.Resampling.BILINEAR)
-            over = overlay(raw, pca, alpha)
-            pca_col = 1 + model_idx * 2
-            canvas.paste(pca, (pca_col * tile_w, y))
-            canvas.paste(over, ((pca_col + 1) * tile_w, y))
+            if include_overlay:
+                over = overlay(raw, pca, alpha)
+                pca_col = 1 + model_idx * 2
+                canvas.paste(pca, (pca_col * tile_w, y))
+                canvas.paste(over, ((pca_col + 1) * tile_w, y))
+            else:
+                pca_col = 1 + model_idx
+                canvas.paste(pca, (pca_col * tile_w, y))
         draw.text((6, y + tile_h + 3), f"feature_t={t} input_frame={raw_idx}", fill=(230, 230, 230))
     return canvas
 
@@ -650,7 +728,7 @@ def main() -> None:
             ]
             out_stem = safe_stem(sample.name)
             sheet_path = args.out_dir / f"{out_stem}_compare_pca_sheet.png"
-            sheet = make_compare_sheet(raw_frames, model_maps, tubelet_size, args.alpha, out_stem)
+            sheet = make_compare_sheet(raw_frames, model_maps, tubelet_size, args.alpha, out_stem, args.overlay)
             sheet.save(sheet_path)
 
             npy_paths = {}
@@ -677,6 +755,8 @@ def main() -> None:
             "crop_size": crop_size,
             "patch_size": patch_size,
             "tubelet_size": tubelet_size,
+            "overlay": args.overlay,
+            "alpha": args.alpha,
             "pca_scope": args.pca_scope,
             "models": model_records,
             "samples": records,
@@ -708,7 +788,7 @@ def main() -> None:
         out_stem = safe_stem(sample.name)
         sheet_path = args.out_dir / f"{out_stem}_pca_sheet.png"
         pca_path = args.out_dir / f"{out_stem}_pca_maps.png"
-        sheet = make_contact_sheet(raw_frames, pca_map, tubelet_size, args.alpha, out_stem)
+        sheet = make_contact_sheet(raw_frames, pca_map, tubelet_size, args.alpha, out_stem, args.overlay)
         sheet.save(sheet_path)
         pca_sheet = make_contact_sheet(
             [Image.new("RGB", raw_frames[0].size, color=(0, 0, 0)) for _ in raw_frames],
@@ -716,6 +796,7 @@ def main() -> None:
             tubelet_size,
             1.0,
             f"{out_stem} PCA",
+            False,
         )
         pca_sheet.crop((raw_frames[0].width, 0, raw_frames[0].width * 2, pca_sheet.height)).save(pca_path)
 
@@ -743,6 +824,8 @@ def main() -> None:
         "crop_size": crop_size,
         "patch_size": patch_size,
         "tubelet_size": tubelet_size,
+        "overlay": args.overlay,
+        "alpha": args.alpha,
         "pca_scope": args.pca_scope,
         "samples": records,
     }

@@ -3,6 +3,31 @@
 
 Compute nodes often cannot reach the internet. Run this script before submitting
 training so configs point at local/shared filesystem checkpoints.
+
+python scripts/cache_vjepa_models.py \
+    --model vjepa2_1_vitg \
+    --config configs/train_2_1/vitg16/pretrain-256px-16f.yaml \
+    --write-resolved-config configs/train_2_1/vitg16/pretrain-256px-16f-resolved.yaml
+
+python scripts/cache_vjepa_models.py \
+    --model vjepa2_1_vitb \
+    --config configs/train_2_1/vitb16/pretrain-256px-16f.yaml \
+    --write-resolved-config configs/train_2_1/vitb16/pretrain-256px-16f-resolved.yaml
+
+python scripts/cache_vjepa_models.py \
+    --model vjepa2_1_vitG \
+    --config configs/train_2_1/vitG16/pretrain-256px-16f.yaml \
+    --write-resolved-config configs/train_2_1/vitG16/pretrain-256px-16f-resolved.yaml
+
+
+
+python scripts/visualize_vjepa2_1_pca.py \
+    --compare \
+    --compare-pretrained vjepa2_1_vitb vjepa2_1_vitg vjepa2_1_vitG \
+    --checkpoint output/surgvu_slurm/vjepa2_1_vitb_384px_16f/e14.pth.tar \
+    --images data/cat.jpg \
+    --out-dir output/vjepa2_1_pca_compare
+
 """
 
 from __future__ import annotations

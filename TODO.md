@@ -4,3 +4,7 @@
     [] optimize memory and gpu usage + torch.compile
     [] use san luigi videos
     []
+
+    --- Detection --------------------------------------------------
+    [] tool tracking holohub
+    []

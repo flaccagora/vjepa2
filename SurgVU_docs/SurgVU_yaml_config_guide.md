@@ -282,6 +282,20 @@ This section is optional. It was added for SurgVU logging.
 | `resume` | W&B resume behavior. | Omit unless resuming a known run |
 | `id` | W&B run id. Required for exact W&B resume. | Omit for new runs |
 
+### `wandb.pca`
+
+This nested section logs dense encoder PCA feature maps during training. The implementation uses the current training batch after the optimizer step, runs a no-grad encoder forward on rank 0, reshapes patch/tubelet tokens to `(T, H, W)`, fits the first three PCA components, and logs a contact sheet to W&B under `pca/feature_maps`. It follows the same visualization logic as `scripts/visualize_vjepa2_1_pca.py`.
+
+| Entry | Meaning | Recommended SurgVU value |
+| --- | --- | --- |
+| `enable` | Enables PCA feature-map image logging. Requires `wandb.enable: true` and successful W&B init. | `true` for smoke/debug and final monitored runs |
+| `log_freq` | Logs PCA maps every N global training steps. This is independent of scalar `wandb.log_freq`. | `100` for full training; `1` for smoke tests |
+| `max_samples` | Number of samples from the first clip batch to visualize at each PCA step. | `1`; increase only for short debugging runs |
+| `max_pca_tokens` | Maximum tokens used to fit PCA. All tokens are projected after fitting. | `50000` |
+| `encoder` | Which encoder to visualize: `target_encoder` for EMA features or `encoder` for the online encoder. | `target_encoder` |
+| `overlay` | Also logs input/PCA blended overlay columns in the contact sheet. | `false`; use `true` for qualitative inspection |
+| `alpha` | Overlay opacity when `overlay: true`. | `0.55` |
+
 On SLURM compute nodes without internet, use `mode: offline`. If `strict: true` and W&B lacks permission for the selected `entity` or cannot access its local directory, training will fail by design.
 
 ## Final Stage 1 YAML Skeleton
@@ -393,6 +407,14 @@ wandb:
   group: surgvu-vjepa2.1-vitb
   job_type: train
   tags: [surgvu, vjepa2.1, vitb, stage1]
+  pca:
+    enable: true
+    log_freq: 100
+    max_samples: 1
+    max_pca_tokens: 50000
+    encoder: target_encoder
+    overlay: false
+    alpha: 0.55
 ```
 
 ## Final Stage 2 Cooldown Changes

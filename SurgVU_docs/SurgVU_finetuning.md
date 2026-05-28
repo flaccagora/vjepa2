@@ -178,18 +178,25 @@ python -m app.main \
 
 ## W&B Logging
 
-W&B logging is optional and rank-0 only. The smoke config uses:
+W&B logging is optional and rank-0 only. The smoke config currently enables W&B so the one-step test also verifies scalar and PCA image logging:
 
 ```yaml
 wandb:
-  enable: false
-  mode: offline
-  strict: false
+  enable: true
+  mode: online
+  strict: true
+  pca:
+    enable: true
+    log_freq: 1
+    max_samples: 1
+    encoder: target_encoder
 ```
 
-Keep `enable: false` for local smoke tests and no-internet compute nodes. If W&B is enabled, `strict: false` means
+Set `mode: offline` for no-internet compute nodes, then sync from a login node later. If W&B is enabled, `strict: false` means
 authentication, permission, or service errors are logged as warnings and training continues. Set `wandb.strict: true`
 only when you want W&B failures to abort the run.
+
+The nested `wandb.pca` block logs dense feature-map contact sheets under `pca/feature_maps`. It uses the current training batch after the optimizer step, runs a no-grad V-JEPA2.1 encoder pass matching `scripts/visualize_vjepa2_1_pca.py`, fits three PCA components over patch/tubelet tokens, and logs the input frames beside the PCA RGB maps. Use `log_freq: 100`, `max_samples: 1`, and `encoder: target_encoder` for the first full SurgVU recipe.
 
 Full fine-tuning:
 

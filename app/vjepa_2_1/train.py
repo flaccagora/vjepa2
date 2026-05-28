@@ -14,6 +14,7 @@ except Exception:
 
 import copy
 import gc
+import math
 import random
 import time
 
@@ -54,6 +55,154 @@ torch.backends.cudnn.benchmark = True
 
 
 logger = get_logger(__name__, force=True)
+
+
+_IMAGENET_MEAN = torch.tensor([0.485, 0.456, 0.406], dtype=torch.float32).view(3, 1, 1, 1)
+_IMAGENET_STD = torch.tensor([0.229, 0.224, 0.225], dtype=torch.float32).view(3, 1, 1, 1)
+
+
+def _fit_pca(tokens, max_tokens):
+    if tokens.ndim != 2:
+        tokens = tokens.reshape(-1, tokens.shape[-1])
+    if tokens.shape[0] > max_tokens:
+        step = math.ceil(tokens.shape[0] / max_tokens)
+        fit_tokens = tokens[::step][:max_tokens]
+    else:
+        fit_tokens = tokens
+    mean = fit_tokens.mean(dim=0, keepdim=True)
+    centered = fit_tokens - mean
+    _, _, vh = torch.linalg.svd(centered, full_matrices=False)
+    return mean.squeeze(0), vh[:3].T.contiguous()
+
+
+def _pca_limits(projected):
+    projected = projected.reshape(-1, 3)
+    return torch.quantile(projected, 0.01, dim=0), torch.quantile(projected, 0.99, dim=0)
+
+
+def _project_pca(tokens, mean, components):
+    projected = (tokens - mean) @ components
+    lo, hi = _pca_limits(projected)
+    projected = (projected - lo) / (hi - lo).clamp_min(1e-6)
+    return projected.clamp(0.0, 1.0)
+
+
+def _reshape_feature_map(tokens, clip_shape, patch_size, tubelet_size):
+    _, num_frames, height, width = clip_shape
+    h_tokens = height // patch_size
+    w_tokens = width // patch_size
+    t_tokens = 1 if num_frames == 1 else max(1, num_frames // tubelet_size)
+    expected = t_tokens * h_tokens * w_tokens
+    if tokens.shape[0] > expected:
+        tokens = tokens[-expected:]
+    if tokens.shape[0] != expected:
+        raise RuntimeError(
+            f"Cannot reshape {tokens.shape[0]} tokens to T,H,W={t_tokens},{h_tokens},{w_tokens} ({expected})."
+        )
+    return tokens.view(t_tokens, h_tokens, w_tokens, -1)
+
+
+def _denormalize_clip_frames(clip):
+    from PIL import Image
+
+    clip = clip.detach().float().cpu()
+    mean = _IMAGENET_MEAN.to(dtype=clip.dtype)
+    std = _IMAGENET_STD.to(dtype=clip.dtype)
+    frames = (clip * std + mean).clamp(0.0, 1.0).permute(1, 2, 3, 0).numpy()
+    return [
+        Image.fromarray((frame * 255.0).round().astype(np.uint8), mode="RGB")
+        for frame in frames
+    ]
+
+
+def _to_uint8_image(array):
+    from PIL import Image
+
+    return Image.fromarray((np.clip(array, 0.0, 1.0) * 255.0).round().astype(np.uint8), mode="RGB")
+
+
+def _pca_contact_sheet(raw_frames, pca_maps, tubelet_size, title, include_overlay=False, alpha=0.55):
+    from PIL import Image, ImageDraw
+
+    tile_w, tile_h = raw_frames[0].size
+    label_h = 22
+    rows = pca_maps.shape[0]
+    headers = ["input", "PCA RGB"]
+    if include_overlay:
+        headers.append("overlay")
+    canvas = Image.new("RGB", (len(headers) * tile_w, rows * (tile_h + label_h) + label_h), color=(18, 18, 18))
+    draw = ImageDraw.Draw(canvas)
+    draw.text((6, 4), title, fill=(240, 240, 240))
+    for col, header in enumerate(headers):
+        draw.text((col * tile_w + 6, label_h + 3), header, fill=(240, 240, 240))
+
+    for t in range(rows):
+        raw_idx = 0 if len(raw_frames) == 1 else min(len(raw_frames) - 1, int(round((t + 0.5) * tubelet_size - 0.5)))
+        raw = raw_frames[raw_idx]
+        pca = _to_uint8_image(pca_maps[t].numpy()).resize(raw.size, Image.Resampling.BILINEAR)
+        images = [raw, pca]
+        if include_overlay:
+            images.append(Image.blend(raw.convert("RGB"), pca.convert("RGB"), alpha))
+        y = label_h + t * (tile_h + label_h) + label_h
+        for col, image in enumerate(images):
+            canvas.paste(image, (col * tile_w, y))
+        draw.text((6, y + tile_h + 3), f"feature_t={t} input_frame={raw_idx}", fill=(230, 230, 230))
+    return canvas
+
+
+def _log_wandb_pca_feature_maps(
+    *,
+    wandb_module,
+    wandb_run,
+    clips,
+    encoder,
+    target_encoder,
+    step,
+    patch_size,
+    tubelet_size,
+    dtype,
+    mixed_precision,
+    max_samples,
+    max_pca_tokens,
+    encoder_name,
+    include_overlay,
+    alpha,
+):
+    if wandb_run is None or wandb_module is None or not clips:
+        return
+    if max_samples <= 0:
+        return
+
+    pca_encoder = target_encoder if encoder_name == "target_encoder" else encoder
+    pca_encoder = pca_encoder.module if hasattr(pca_encoder, "module") else pca_encoder
+    was_training = pca_encoder.training
+    pca_encoder.eval()
+
+    images = []
+    try:
+        batch = clips[0][:max_samples].detach()
+        with torch.no_grad():
+            for sample_idx, clip in enumerate(batch):
+                with torch.cuda.amp.autocast(dtype=dtype, enabled=mixed_precision):
+                    features = pca_encoder([clip.unsqueeze(0)], gram_mode=False, training_mode=False)
+                if isinstance(features, list):
+                    features = features[-1]
+                tokens = features.squeeze(0).detach().float().cpu()
+                feature_map = _reshape_feature_map(tokens, tuple(clip.shape), patch_size, tubelet_size)
+                flat = feature_map.reshape(-1, feature_map.shape[-1])
+                mean, components = _fit_pca(flat, max_pca_tokens)
+                pca_maps = _project_pca(flat, mean, components).view(*feature_map.shape[:3], 3)
+                raw_frames = _denormalize_clip_frames(clip)
+                title = f"{encoder_name} sample={sample_idx} step={step}"
+                sheet = _pca_contact_sheet(raw_frames, pca_maps, tubelet_size, title, include_overlay, alpha)
+                images.append(wandb_module.Image(sheet, caption=title))
+        if images:
+            wandb_run.log({"pca/feature_maps": images}, step=step)
+    except Exception as exc:
+        logger.warning("W&B PCA feature map logging failed: %s", exc)
+    finally:
+        if was_training:
+            pca_encoder.train()
 
 
 def main(args, resume_preempt=False):
@@ -222,12 +371,24 @@ def main(args, resume_preempt=False):
     # -- optional W&B logging (rank 0 only)
     cfgs_wandb = args.get("wandb")
     wandb_run = None
+    wandb_module = None
     wandb_log_freq = log_freq
+    wandb_pca_cfg = (cfgs_wandb or {}).get("pca", {})
+    wandb_pca_enable = bool(wandb_pca_cfg.get("enable", False))
+    wandb_pca_log_freq = int(wandb_pca_cfg.get("log_freq", max(log_freq, 100)))
+    wandb_pca_max_samples = int(wandb_pca_cfg.get("max_samples", 1))
+    wandb_pca_max_tokens = int(wandb_pca_cfg.get("max_pca_tokens", 50000))
+    wandb_pca_encoder = wandb_pca_cfg.get("encoder", "target_encoder")
+    wandb_pca_overlay = bool(wandb_pca_cfg.get("overlay", False))
+    wandb_pca_alpha = float(wandb_pca_cfg.get("alpha", 0.55))
+    if wandb_pca_encoder not in {"encoder", "target_encoder"}:
+        raise ValueError("wandb.pca.encoder must be 'encoder' or 'target_encoder'")
     if cfgs_wandb and cfgs_wandb.get("enable", False) and rank == 0:
         wandb_strict = cfgs_wandb.get("strict", False)
         try:
             import wandb
 
+            wandb_module = wandb
             wandb_log_freq = cfgs_wandb.get("log_freq", log_freq)
             wandb_run = wandb.init(
                 project=cfgs_wandb.get("project", "vjepa2"),
@@ -810,6 +971,7 @@ def main(args, resume_preempt=False):
             iter_time_meter.update(iter_elapsed_time_ms)
             gpu_time_meter.update(gpu_etime_ms)
             data_elapsed_time_meter.update(data_elapsed_time_ms)
+            global_step = epoch * ipe + itr
 
             if loss_reg_std_mult is not None:
                 if run_step:
@@ -822,6 +984,31 @@ def main(args, resume_preempt=False):
                         raise RuntimeError(
                             "Loss is above bound for too many tries. Exiting."
                         )
+
+            if (
+                rank == 0
+                and wandb_run is not None
+                and wandb_pca_enable
+                and wandb_pca_log_freq > 0
+                and global_step % wandb_pca_log_freq == 0
+            ):
+                _log_wandb_pca_feature_maps(
+                    wandb_module=wandb_module,
+                    wandb_run=wandb_run,
+                    clips=clips,
+                    encoder=encoder,
+                    target_encoder=target_encoder,
+                    step=global_step,
+                    patch_size=patch_size,
+                    tubelet_size=tubelet_size,
+                    dtype=dtype,
+                    mixed_precision=mixed_precision,
+                    max_samples=wandb_pca_max_samples,
+                    max_pca_tokens=wandb_pca_max_tokens,
+                    encoder_name=wandb_pca_encoder,
+                    include_overlay=wandb_pca_overlay,
+                    alpha=wandb_pca_alpha,
+                )
 
             # -- Logging
             def log_stats():
@@ -891,7 +1078,7 @@ def main(args, resume_preempt=False):
                         )
                     for k in mask_meters:
                         metrics[f"mask/{k}"] = float(mask_meters[k].avg)
-                    wandb_run.log(metrics, step=epoch * ipe + itr)
+                    wandb_run.log(metrics, step=global_step)
 
             log_stats()
             assert not np.isnan(loss), "loss is nan"
