@@ -54,6 +54,7 @@ def make_videodataset(
     log_dir=None,
     preprocess_metadata=None,
     use_preprocess_metadata=False,
+    length_weighted_sampling=False,
 ):
     dataset = VideoDataset(
         data_paths=data_paths,
@@ -72,6 +73,7 @@ def make_videodataset(
         transform=transform,
         preprocess_metadata=preprocess_metadata,
         use_preprocess_metadata=use_preprocess_metadata,
+        length_weighted_sampling=length_weighted_sampling,
     )
 
     log_dir = pathlib.Path(log_dir) if log_dir else None
@@ -87,7 +89,7 @@ def make_videodataset(
         )
 
     logger.info("VideoDataset dataset created")
-    if datasets_weights is not None:
+    if dataset.sample_weights is not None:
         dist_sampler = DistributedWeightedSampler(
             dataset, num_replicas=world_size, rank=rank, shuffle=True
         )
@@ -144,6 +146,7 @@ class VideoDataset(torch.utils.data.Dataset):
         duration=None,  # duration in seconds
         preprocess_metadata=None,
         use_preprocess_metadata=False,
+        length_weighted_sampling=False,
     ):
         self.data_paths = data_paths
         self.datasets_weights = datasets_weights
@@ -159,6 +162,7 @@ class VideoDataset(torch.utils.data.Dataset):
         self.fps = fps
         self.use_preprocess_metadata = use_preprocess_metadata
         self.preprocess_metadata = self._load_preprocess_metadata(preprocess_metadata) if use_preprocess_metadata else {}
+        self.length_weighted_sampling = length_weighted_sampling
 
         if sum([v is not None for v in (fps, duration, frame_step)]) != 1:
             raise ValueError(
@@ -208,16 +212,9 @@ class VideoDataset(torch.utils.data.Dataset):
 
         self.per_dataset_indices = ConcatIndices(self.num_samples_per_dataset)
 
-        # [Optional] Weights for each sample to be used by downstream
-        # weighted video sampler
-        self.sample_weights = None
-        if self.datasets_weights is not None:
-            self.sample_weights = []
-            for dw, ns in zip(self.datasets_weights, self.num_samples_per_dataset):
-                self.sample_weights += [dw / ns] * ns
-
         self.samples = samples
         self.labels = labels
+        self.sample_weights = self._build_sample_weights()
 
     @staticmethod
     def _path_keys(path):
@@ -253,6 +250,84 @@ class VideoDataset(torch.utils.data.Dataset):
             if item is not None:
                 return item
         return None
+
+    @staticmethod
+    def _duration_from_metadata(metadata):
+        if not metadata:
+            return None
+        duration = metadata.get("duration")
+        if duration is None:
+            for frames_key, fps_key in (
+                ("source_frames", "source_fps"),
+                ("written_frames", "output_fps"),
+            ):
+                frames = metadata.get(frames_key)
+                fps = metadata.get(fps_key)
+                try:
+                    if frames is not None and fps:
+                        duration = float(frames) / float(fps)
+                        break
+                except (TypeError, ValueError, ZeroDivisionError):
+                    pass
+        if duration is None:
+            return None
+        try:
+            return max(float(duration), 0.0)
+        except (TypeError, ValueError):
+            return None
+
+    def _duration_weight_for_sample(self, sample):
+        metadata = self._metadata_for_sample(sample)
+        duration = self._duration_from_metadata(metadata)
+        if duration is None:
+            return 1.0
+
+        black_duration = 0.0
+        for start, end in self._black_intervals_from_metadata(metadata):
+            black_duration += max(0.0, end - start)
+        return max(duration - black_duration, 1.0)
+
+    def _build_sample_weights(self):
+        if not self.length_weighted_sampling and self.datasets_weights is None:
+            return None
+
+        sample_weights = []
+        offset = 0
+        for dataset_idx, ns in enumerate(self.num_samples_per_dataset):
+            dataset_samples = self.samples[offset : offset + ns]
+            if self.length_weighted_sampling:
+                weights = [self._duration_weight_for_sample(sample) for sample in dataset_samples]
+                raw_weights = list(weights)
+                total_weight = sum(weights)
+                if total_weight <= 0:
+                    weights = [1.0 for _ in dataset_samples]
+                    raw_weights = list(weights)
+                    total_weight = sum(weights)
+            else:
+                weights = [1.0 for _ in dataset_samples]
+                raw_weights = list(weights)
+                total_weight = float(ns)
+
+            dataset_weight = 1.0
+            if self.datasets_weights is not None:
+                dataset_weight = float(self.datasets_weights[dataset_idx])
+                weights = [dataset_weight * weight / total_weight for weight in weights]
+
+            sample_weights.extend(weights)
+            if self.length_weighted_sampling:
+                logger.info(
+                    "Length-weighted sampling for dataset %d: samples=%d "
+                    "min=%.2fs max=%.2fs mean=%.2fs dataset_weight=%.4g",
+                    dataset_idx,
+                    ns,
+                    min(raw_weights) if raw_weights else 0.0,
+                    max(raw_weights) if raw_weights else 0.0,
+                    (sum(raw_weights) / len(raw_weights)) if raw_weights else 0.0,
+                    dataset_weight,
+                )
+            offset += ns
+
+        return sample_weights
 
     @staticmethod
     def _black_intervals_from_metadata(metadata):

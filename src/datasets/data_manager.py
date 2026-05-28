@@ -39,6 +39,7 @@ def init_data(
     log_dir=None,
     preprocess_metadata=None,
     use_preprocess_metadata=False,
+    length_weighted_sampling=False,
 ):
     if data.lower() == "imagenet":
         from src.datasets.imagenet1k import make_imagenet1k
@@ -87,6 +88,7 @@ def init_data(
             log_dir=log_dir,
             preprocess_metadata=preprocess_metadata,
             use_preprocess_metadata=use_preprocess_metadata,
+            length_weighted_sampling=length_weighted_sampling,
         )
 
     return (data_loader, dist_sampler)

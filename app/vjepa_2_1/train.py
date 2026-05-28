@@ -143,6 +143,7 @@ def main(args, resume_preempt=False):
     use_preprocess_metadata = cfgs_data.get("use_preprocess_metadata")
     if use_preprocess_metadata is None:
         use_preprocess_metadata = bool(preprocess_metadata)
+    length_weighted_sampling = cfgs_data.get("length_weighted_sampling", False)
 
     # -- IMG DATA
     cfgs_img_data = args.get("img_data")
@@ -442,6 +443,7 @@ def main(args, resume_preempt=False):
         filter_long_videos=filter_long_videos,
         preprocess_metadata=preprocess_metadata,
         use_preprocess_metadata=use_preprocess_metadata,
+        length_weighted_sampling=length_weighted_sampling,
         log_dir=None,
     )
     try:
