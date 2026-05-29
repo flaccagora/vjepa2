@@ -11,7 +11,7 @@ data:
   - data/surgvu/manifest_train.csv
   datasets_weights:
   - 1.0
-  batch_size: 1
+  batch_size: 8
   crop_size: 384
   patch_size: 16
   dataset_fpcs:
@@ -77,7 +77,7 @@ meta:
   seed: 239
   use_sdpa: true
 model:
-  compile_model: false
+  compile_model: true
   has_cls_first: false
   img_temporal_dim_size: 1
   interpolate_rope: true
