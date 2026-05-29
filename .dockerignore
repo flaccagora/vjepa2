@@ -13,6 +13,7 @@ checkpoints
 surgvu_metadata_train
 *.mp4
 *.pdf
+*.sif
 
 # Local/editor files.
 .vscode

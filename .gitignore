@@ -34,3 +34,4 @@ configs/local
 output/
 data/
 checkpoints/
+*.sif
