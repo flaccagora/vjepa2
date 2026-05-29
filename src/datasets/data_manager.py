@@ -40,6 +40,7 @@ def init_data(
     preprocess_metadata=None,
     use_preprocess_metadata=False,
     length_weighted_sampling=False,
+    video_backend="decord",
 ):
     if data.lower() == "imagenet":
         from src.datasets.imagenet1k import make_imagenet1k
@@ -89,6 +90,7 @@ def init_data(
             preprocess_metadata=preprocess_metadata,
             use_preprocess_metadata=use_preprocess_metadata,
             length_weighted_sampling=length_weighted_sampling,
+            video_backend=video_backend,
         )
 
     return (data_loader, dist_sampler)

@@ -293,6 +293,7 @@ def main(args, resume_preempt=False):
     if use_preprocess_metadata is None:
         use_preprocess_metadata = bool(preprocess_metadata)
     length_weighted_sampling = cfgs_data.get("length_weighted_sampling", False)
+    video_backend = cfgs_data.get("video_backend", "decord")
 
     # -- IMG DATA
     cfgs_img_data = args.get("img_data")
@@ -605,6 +606,7 @@ def main(args, resume_preempt=False):
         preprocess_metadata=preprocess_metadata,
         use_preprocess_metadata=use_preprocess_metadata,
         length_weighted_sampling=length_weighted_sampling,
+        video_backend=video_backend,
         log_dir=None,
     )
     try:

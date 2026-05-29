@@ -143,6 +143,22 @@ def get_video_fps(path: str, cache: dict[str, float | None]) -> float | None:
     return cache[path]
 
 
+def metadata_video_fps(dataset, path: str | None) -> float | None:
+    if not path or not hasattr(dataset, "_metadata_for_sample"):
+        return None
+    metadata = dataset._metadata_for_sample(path)
+    if not metadata:
+        return None
+    for key in ("source_fps", "output_fps"):
+        try:
+            value = metadata.get(key)
+            if value is not None and float(value) > 0:
+                return float(value)
+        except (TypeError, ValueError):
+            pass
+    return None
+
+
 def frame_times_seconds(frame_indices: list[int], video_fps: float | None) -> list[float | None]:
     if not video_fps or video_fps <= 0:
         return [None for _ in frame_indices]
@@ -218,6 +234,7 @@ def main() -> None:
             if cfgs_data.get("use_preprocess_metadata") is None
             else cfgs_data.get("use_preprocess_metadata")
         ),
+        video_backend=cfgs_data.get("video_backend", "decord"),
         persistent_workers=False,
     )
     sampler.set_epoch(0)
@@ -259,7 +276,9 @@ def main() -> None:
                     label = int(labels[sample_idx].item()) if torch.is_tensor(labels[sample_idx]) else int(labels[sample_idx])
                     dataset_index = int(source_indices[sample_idx]) if sample_idx < len(source_indices) else None
                     source_video_path = str(dataset.samples[dataset_index]) if dataset_index is not None else None
-                    source_video_fps = get_video_fps(source_video_path, video_fps_cache) if source_video_path else None
+                    source_video_fps = metadata_video_fps(dataset, source_video_path)
+                    if source_video_fps is None and source_video_path:
+                        source_video_fps = get_video_fps(source_video_path, video_fps_cache)
                     source_frame_times = frame_times_seconds(src_indices, source_video_fps)
 
                     sheet = make_contact_sheet(frames, src_indices, frames_per_row=args.frames_per_row)

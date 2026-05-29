@@ -5,7 +5,14 @@
 
 import unittest
 
+import numpy as np
+
 from src.datasets.utils.dataloader import ConcatIndices
+
+try:
+    from src.datasets.video_dataset import VideoDataset
+except ModuleNotFoundError:
+    VideoDataset = None
 
 
 class TestConcatIndices(unittest.TestCase):
@@ -32,3 +39,20 @@ class TestConcatIndices(unittest.TestCase):
         # 100 is outside the total range
         with self.assertRaises(ValueError):
             concat_indices[total_size]
+
+
+class TestVideoDatasetMetadataCrop(unittest.TestCase):
+    @unittest.skipIf(VideoDataset is None, "video dataset dependencies are not installed")
+    def test_metadata_crop_returns_view_with_expected_pixels(self):
+        buffer = np.arange(2 * 5 * 7 * 3, dtype=np.uint8).reshape(2, 5, 7, 3)
+        metadata = {
+            "crop_x": 2,
+            "crop_y": 1,
+            "crop_width": 3,
+            "crop_height": 2,
+        }
+
+        cropped = VideoDataset._apply_metadata_crop(buffer, metadata)
+
+        np.testing.assert_array_equal(cropped, buffer[:, 1:3, 2:5, :])
+        self.assertTrue(np.shares_memory(cropped, buffer))

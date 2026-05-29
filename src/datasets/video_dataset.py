@@ -7,6 +7,8 @@ import math
 import os
 import pathlib
 import json
+import shutil
+import subprocess
 import warnings
 from logging import getLogger
 
@@ -55,6 +57,7 @@ def make_videodataset(
     preprocess_metadata=None,
     use_preprocess_metadata=False,
     length_weighted_sampling=False,
+    video_backend="decord",
 ):
     dataset = VideoDataset(
         data_paths=data_paths,
@@ -74,6 +77,7 @@ def make_videodataset(
         preprocess_metadata=preprocess_metadata,
         use_preprocess_metadata=use_preprocess_metadata,
         length_weighted_sampling=length_weighted_sampling,
+        video_backend=video_backend,
     )
 
     log_dir = pathlib.Path(log_dir) if log_dir else None
@@ -147,6 +151,7 @@ class VideoDataset(torch.utils.data.Dataset):
         preprocess_metadata=None,
         use_preprocess_metadata=False,
         length_weighted_sampling=False,
+        video_backend="decord",
     ):
         self.data_paths = data_paths
         self.datasets_weights = datasets_weights
@@ -163,6 +168,7 @@ class VideoDataset(torch.utils.data.Dataset):
         self.use_preprocess_metadata = use_preprocess_metadata
         self.preprocess_metadata = self._load_preprocess_metadata(preprocess_metadata) if use_preprocess_metadata else {}
         self.length_weighted_sampling = length_weighted_sampling
+        self.video_backend = str(video_backend or "decord").lower()
 
         if sum([v is not None for v in (fps, duration, frame_step)]) != 1:
             raise ValueError(
@@ -401,6 +407,69 @@ class VideoDataset(torch.utils.data.Dataset):
             indices = np.clip(indices, 0, segment_len - 1).astype(np.int64)
         return indices + segment_start
 
+    def _sample_video_indices(self, num_frames, video_fps, metadata, fpc, fstp, clip_len):
+        valid_segments = None
+        if metadata is not None:
+            valid_segments = self._valid_frame_segments(
+                num_frames=num_frames,
+                video_fps=video_fps,
+                black_intervals=self._black_intervals_from_metadata(metadata),
+            )
+        if valid_segments is not None and not valid_segments:
+            return None, None, 0
+
+        sample_len = num_frames
+        max_segment_len = num_frames
+        if valid_segments is not None:
+            sample_len = sum(end - start for start, end in valid_segments)
+            max_segment_len = max(end - start for start, end in valid_segments)
+
+        partition_len = max(1, sample_len // self.num_clips)
+        all_indices, clip_indices = [], []
+        for i in range(self.num_clips):
+            if valid_segments is not None:
+                segment_start, segment_end = self._select_valid_segment(valid_segments, i)
+                indices = self._sample_indices_from_segment(segment_start, segment_end, fpc, fstp, clip_len)
+            elif partition_len > clip_len:
+                end_indx = clip_len
+                if self.random_clip_sampling:
+                    end_indx = np.random.randint(clip_len, partition_len)
+                start_indx = end_indx - clip_len
+                indices = np.linspace(start_indx, end_indx, num=fpc)
+                indices = np.clip(indices, start_indx, end_indx - 1).astype(np.int64)
+                indices = indices + i * partition_len
+            elif not self.allow_clip_overlap:
+                indices = np.linspace(0, partition_len, num=partition_len // fstp)
+                indices = np.concatenate(
+                    (
+                        indices,
+                        np.ones(fpc - partition_len // fstp) * partition_len,
+                    )
+                )
+                indices = np.clip(indices, 0, partition_len - 1).astype(np.int64)
+                indices = indices + i * partition_len
+            else:
+                sample_window_len = max(1, min(clip_len, sample_len)) - 1
+                sample_points = max(1, sample_window_len // fstp)
+                indices = np.linspace(0, sample_window_len, num=sample_points)
+                indices = np.concatenate(
+                    (
+                        indices,
+                        np.ones(fpc - sample_points) * sample_window_len,
+                    )
+                )
+                indices = np.clip(indices, 0, sample_window_len).astype(np.int64)
+                clip_step = 0
+                if sample_len > clip_len and self.num_clips > 1:
+                    clip_step = (sample_len - clip_len) // (self.num_clips - 1)
+                indices = indices + i * clip_step
+
+            indices = np.clip(indices, 0, num_frames - 1).astype(np.int64)
+            clip_indices.append(indices)
+            all_indices.extend(list(indices))
+
+        return all_indices, clip_indices, max_segment_len
+
     @staticmethod
     def _apply_metadata_crop(buffer, metadata):
         if not metadata:
@@ -415,7 +484,7 @@ class VideoDataset(torch.utils.data.Dataset):
         y2 = min(height, y1 + max(1, int(metadata["crop_height"])))
         if x2 <= x1 or y2 <= y1:
             return buffer
-        return buffer[:, y1:y2, x1:x2, :].copy()
+        return buffer[:, y1:y2, x1:x2, :]
 
     def __getitem__(self, index):
         sample = self.samples[index]
@@ -507,6 +576,11 @@ class VideoDataset(torch.utils.data.Dataset):
             warnings.warn(f"skipping long video of size {_fsize=} (bytes)")
             return [], None
 
+        if self.video_backend == "ffmpeg":
+            loaded = self._loadvideo_ffmpeg_metadata(fname, metadata, fpc)
+            if loaded is not None:
+                return loaded
+
         try:
             vr = VideoReader(fname, num_threads=-1, ctx=cpu(0))
         except Exception:
@@ -536,22 +610,17 @@ class VideoDataset(torch.utils.data.Dataset):
                 logger.warning(e)
                 video_fps = None
 
-        valid_segments = None
-        if metadata is not None:
-            valid_segments = self._valid_frame_segments(
-                num_frames=len(vr),
-                video_fps=video_fps,
-                black_intervals=self._black_intervals_from_metadata(metadata),
-            )
-        if valid_segments is not None and not valid_segments:
+        all_indices, clip_indices, max_segment_len = self._sample_video_indices(
+            num_frames=len(vr),
+            video_fps=video_fps,
+            metadata=metadata,
+            fpc=fpc,
+            fstp=fstp,
+            clip_len=clip_len,
+        )
+        if all_indices is None:
             warnings.warn(f"skipping video with no valid non-black frames {fname=}")
             return [], None
-
-        sample_len = len(vr)
-        max_segment_len = len(vr)
-        if valid_segments is not None:
-            sample_len = sum(end - start for start, end in valid_segments)
-            max_segment_len = max(end - start for start, end in valid_segments)
 
         if self.filter_short_videos and max_segment_len < clip_len:
             warnings.warn(f"skipping video with max valid segment length {max_segment_len}")
@@ -559,68 +628,107 @@ class VideoDataset(torch.utils.data.Dataset):
 
         vr.seek(0)  # Go to start of video before sampling frames
 
-        # Partition video into equal sized segments and sample each clip
-        # from a different segment
-        partition_len = max(1, sample_len // self.num_clips)
-
-        all_indices, clip_indices = [], []
-        for i in range(self.num_clips):
-
-            if valid_segments is not None:
-                segment_start, segment_end = self._select_valid_segment(valid_segments, i)
-                indices = self._sample_indices_from_segment(segment_start, segment_end, fpc, fstp, clip_len)
-            elif partition_len > clip_len:
-                # If partition_len > clip len, then sample a random window of
-                # clip_len frames within the segment
-                end_indx = clip_len
-                if self.random_clip_sampling:
-                    end_indx = np.random.randint(clip_len, partition_len)
-                start_indx = end_indx - clip_len
-                indices = np.linspace(start_indx, end_indx, num=fpc)
-                indices = np.clip(indices, start_indx, end_indx - 1).astype(np.int64)
-                # --
-                indices = indices + i * partition_len
-            else:
-                # If partition overlap not allowed and partition_len < clip_len
-                # then repeatedly append the last frame in the segment until
-                # we reach the desired clip length
-                if not self.allow_clip_overlap:
-                    indices = np.linspace(0, partition_len, num=partition_len // fstp)
-                    indices = np.concatenate(
-                        (
-                            indices,
-                            np.ones(fpc - partition_len // fstp) * partition_len,
-                        )
-                    )
-                    indices = np.clip(indices, 0, partition_len - 1).astype(np.int64)
-                    # --
-                    indices = indices + i * partition_len
-
-                # If partition overlap is allowed and partition_len < clip_len
-                # then start_indx of segment i+1 will lie within segment i
-                else:
-                    sample_window_len = max(1, min(clip_len, sample_len)) - 1
-                    sample_points = max(1, sample_window_len // fstp)
-                    indices = np.linspace(0, sample_window_len, num=sample_points)
-                    indices = np.concatenate(
-                        (
-                            indices,
-                            np.ones(fpc - sample_points) * sample_window_len,
-                        )
-                    )
-                    indices = np.clip(indices, 0, sample_window_len).astype(np.int64)
-                    # --
-                    clip_step = 0
-                    if sample_len > clip_len and self.num_clips > 1:
-                        clip_step = (sample_len - clip_len) // (self.num_clips - 1)
-                    indices = indices + i * clip_step
-
-            indices = np.clip(indices, 0, len(vr) - 1).astype(np.int64)
-            clip_indices.append(indices)
-            all_indices.extend(list(indices))
-
         buffer = vr.get_batch(all_indices).asnumpy()
         buffer = self._apply_metadata_crop(buffer, metadata)
+        return buffer, clip_indices
+
+    def _loadvideo_ffmpeg_metadata(self, fname, metadata, fpc):
+        if not metadata or shutil.which("ffmpeg") is None:
+            return None
+        required = ("source_frames", "source_fps", "crop_x", "crop_y", "crop_width", "crop_height")
+        if not all(k in metadata for k in required):
+            return None
+        if self.duration is not None:
+            return None
+
+        try:
+            num_frames = int(metadata["source_frames"])
+            video_fps = float(metadata["source_fps"])
+            crop_x = max(0, int(metadata["crop_x"]))
+            crop_y = max(0, int(metadata["crop_y"]))
+            crop_width = max(1, int(metadata["crop_width"]))
+            crop_height = max(1, int(metadata["crop_height"]))
+        except (TypeError, ValueError):
+            return None
+        if num_frames <= 0 or video_fps <= 0:
+            return None
+
+        fstp = self.frame_step
+        if self.fps is not None:
+            fstp = max(1, int(video_fps) // int(self.fps))
+        if fstp is None or fstp <= 0:
+            return None
+        clip_len = int(fpc * fstp)
+
+        all_indices, clip_indices, max_segment_len = self._sample_video_indices(
+            num_frames=num_frames,
+            video_fps=video_fps,
+            metadata=metadata,
+            fpc=fpc,
+            fstp=fstp,
+            clip_len=clip_len,
+        )
+        if all_indices is None:
+            warnings.warn(f"skipping video with no valid non-black frames {fname=}")
+            return [], None
+        if self.filter_short_videos and max_segment_len < clip_len:
+            warnings.warn(f"skipping video with max valid segment length {max_segment_len}")
+            return [], None
+
+        requested_indices = np.asarray(all_indices, dtype=np.int64)
+        decode_indices = np.unique(requested_indices)
+        start_frame = int(decode_indices.min())
+        rel_indices = (decode_indices - start_frame).astype(np.int64)
+        duration = (int(rel_indices.max()) + 2) / video_fps
+        select = "+".join(f"eq(n\\,{int(i)})" for i in rel_indices)
+        vf = f"select={select},crop={crop_width}:{crop_height}:{crop_x}:{crop_y}"
+        cmd = [
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-ss",
+            f"{start_frame / video_fps:.6f}",
+            "-i",
+            fname,
+            "-t",
+            f"{duration:.6f}",
+            "-vf",
+            vf,
+            "-vsync",
+            "0",
+            "-frames:v",
+            str(len(decode_indices)),
+            "-f",
+            "rawvideo",
+            "-pix_fmt",
+            "rgb24",
+            "-",
+        ]
+        try:
+            proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+        except Exception as exc:
+            logger.warning("ffmpeg video load failed for %s; falling back to decord: %s", fname, exc)
+            return None
+
+        expected = len(decode_indices) * crop_height * crop_width * 3
+        if len(proc.stdout) != expected:
+            logger.warning(
+                "ffmpeg video load returned %d bytes, expected %d for %s; falling back to decord",
+                len(proc.stdout),
+                expected,
+                fname,
+            )
+            return None
+        decoded = np.frombuffer(proc.stdout, dtype=np.uint8).reshape(
+            len(decode_indices), crop_height, crop_width, 3
+        )
+        if np.array_equal(requested_indices, decode_indices):
+            buffer = decoded
+        else:
+            decode_positions = {int(index): pos for pos, index in enumerate(decode_indices)}
+            reorder = [decode_positions[int(index)] for index in requested_indices]
+            buffer = decoded[reorder]
         return buffer, clip_indices
 
     def __len__(self):
