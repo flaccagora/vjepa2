@@ -21,6 +21,7 @@ data:
   filter_short_videos: false
   preprocess_metadata: data/surgvu_metadata_train/preprocess_metadata.json
   use_preprocess_metadata: true
+  video_backend: ffmpeg
   num_workers: 8
   pin_mem: true
 data_aug:
