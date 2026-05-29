@@ -22,7 +22,9 @@ data:
   preprocess_metadata: data/surgvu/preprocess_metadata.json
   use_preprocess_metadata: true
   video_backend: ffmpeg
+  length_weighted_sampling: true
   num_workers: 8
+  persistent_workers: true
   pin_mem: true
 data_aug:
   auto_augment: false
@@ -76,7 +78,7 @@ meta:
   seed: 239
   use_sdpa: true
 model:
-  compile_model: false
+  compile_model: true
   has_cls_first: false
   img_temporal_dim_size: 1
   interpolate_rope: true
@@ -114,7 +116,7 @@ optimization:
   epochs: 20
   final_lr: 1.0e-06
   final_weight_decay: 0.04
-  ipe: null
+  ipe: 100
   ipe_scale: 1.25
   lr: 1.0e-05
   start_lr: 1.0e-06
@@ -124,7 +126,7 @@ wandb:
   enable: true
   project: vjepa2
   name: run-001
-  mode: offline
+  mode: online
   log_freq: 1
   strict: true
   pca:
