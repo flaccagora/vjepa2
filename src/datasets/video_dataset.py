@@ -170,6 +170,9 @@ class VideoDataset(torch.utils.data.Dataset):
         self.length_weighted_sampling = length_weighted_sampling
         self.video_backend = str(video_backend or "decord").lower()
 
+        if self.video_backend == "ffmpeg" and shutil.which("ffmpeg") is None:
+            logger.warning("video_backend=ffmpeg requested, but ffmpeg is not available on PATH")
+
         if sum([v is not None for v in (fps, duration, frame_step)]) != 1:
             raise ValueError(
                 f"Must specify exactly one of either {fps=}, {duration=}, or {frame_step=}."
