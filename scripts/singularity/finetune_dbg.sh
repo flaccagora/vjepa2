@@ -75,6 +75,33 @@ cd "$(pwd -P)"
 export SIF="${SIF}"
 export VJEPA2_ENTRYPOINT_QUIET=1
 
+monitor_dir="${RUN_FOLDER}/monitor-\${SLURM_JOB_ID}"
+mkdir -p "\${monitor_dir}"
+
+monitor_pids=()
+if command -v nvidia-smi >/dev/null 2>&1; then
+  nvidia-smi \
+    --query-gpu=timestamp,index,utilization.gpu,utilization.memory,memory.used,memory.total,power.draw \
+    --format=csv \
+    -l 5 > "\${monitor_dir}/gpu.csv" &
+  monitor_pids+=("\$!")
+fi
+
+if command -v mpstat >/dev/null 2>&1; then
+  mpstat 5 > "\${monitor_dir}/mpstat.txt" &
+  monitor_pids+=("\$!")
+elif command -v top >/dev/null 2>&1; then
+  top -b -d 5 > "\${monitor_dir}/top.txt" &
+  monitor_pids+=("\$!")
+fi
+
+cleanup_monitors() {
+  for pid in "\${monitor_pids[@]}"; do
+    kill "\${pid}" >/dev/null 2>&1 || true
+  done
+}
+trap cleanup_monitors EXIT
+
 srun scripts/singularity/singularity_exec.sh python scripts/run_training_config.py --fname "${RESOLVED_CONFIG}"
 SBATCH
 

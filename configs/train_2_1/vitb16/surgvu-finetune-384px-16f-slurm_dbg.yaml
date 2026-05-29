@@ -25,6 +25,7 @@ data:
   video_backend: ffmpeg
   length_weighted_sampling: true
   num_workers: 8
+  persistent_workers: true
   pin_mem: true
 data_aug:
   auto_augment: false

@@ -34,6 +34,7 @@ class DistributedWeightedSampler(DistributedSampler):
         shuffle: bool = True,
         seed: int = 0,
         drop_last: bool = False,
+        num_samples_per_replica: Optional[int] = None,
     ):
         logger.info(
             f"Using DistributedWeightedSampler with rank {rank} / {num_replicas}"
@@ -49,6 +50,9 @@ class DistributedWeightedSampler(DistributedSampler):
             seed=seed,
             drop_last=drop_last,
         )
+        if num_samples_per_replica is not None:
+            self.num_samples = int(num_samples_per_replica)
+            self.total_size = self.num_samples * self.num_replicas
 
     @property
     def sample_probabilities(self) -> np.ndarray:

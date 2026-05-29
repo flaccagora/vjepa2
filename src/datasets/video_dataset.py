@@ -54,6 +54,7 @@ def make_videodataset(
     persistent_workers=True,
     deterministic=True,
     log_dir=None,
+    num_batches_per_epoch=None,
     preprocess_metadata=None,
     use_preprocess_metadata=False,
     length_weighted_sampling=False,
@@ -94,8 +95,15 @@ def make_videodataset(
 
     logger.info("VideoDataset dataset created")
     if dataset.sample_weights is not None:
+        num_samples_per_replica = None
+        if num_batches_per_epoch is not None:
+            num_samples_per_replica = int(num_batches_per_epoch) * int(batch_size)
         dist_sampler = DistributedWeightedSampler(
-            dataset, num_replicas=world_size, rank=rank, shuffle=True
+            dataset,
+            num_replicas=world_size,
+            rank=rank,
+            shuffle=True,
+            num_samples_per_replica=num_samples_per_replica,
         )
     else:
         dist_sampler = torch.utils.data.distributed.DistributedSampler(
