@@ -1,0 +1,25 @@
+.git
+.agents
+.codex
+.pytest_cache
+.venv
+__pycache__
+*.pyc
+
+# Large local artifacts and generated outputs.
+data
+output
+checkpoints
+surgvu_metadata_train
+*.mp4
+*.pdf
+
+# Local/editor files.
+.vscode
+.idea
+*.swp
+*.swo
+
+# Docker/build leftovers.
+Dockerfile.local
+docker-compose.override.yml
