@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 
 CONFIG="${CONFIG:-configs/train_2_1/vitb16/surgvu-finetune-384px-16f.yaml}"
 NUM_BATCHES="${NUM_BATCHES:-1}"
@@ -12,7 +12,7 @@ NUM_WORKERS="${NUM_WORKERS:-0}"
 SEED="${SEED:-239}"
 OUT_DIR="${OUT_DIR:-output/surgvu_dataloader_preview}"
 
-exec scripts/singularity_exec.sh python scripts/visualize_surgvu_dataloader.py \
+exec scripts/singularity/singularity_exec.sh python scripts/visualize_surgvu_dataloader.py \
   --config "${CONFIG}" \
   --num-batches "${NUM_BATCHES}" \
   --max-samples "${MAX_SAMPLES}" \

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 
 CONFIG="${CONFIG:-configs/train_2_1/vitb16/surgvu-finetune-384px-16f-slurm.yaml}"
 SIF="${SIF:-$(pwd -P)/vjepa2.sif}"
@@ -16,7 +16,7 @@ JOB_SCRIPT="${JOB_SCRIPT:-${JOB_DIR}/submit.sh}"
 
 mkdir -p "${JOB_DIR}" "$(dirname "${RESOLVED_CONFIG}")"
 
-scripts/singularity_exec.sh python scripts/cache_vjepa_models.py \
+scripts/singularity/singularity_exec.sh python scripts/cache_vjepa_models.py \
   --config "${CONFIG}" \
   --cache-dir "${CACHE_DIR}" \
   --write-resolved-config "${RESOLVED_CONFIG}"
@@ -75,7 +75,7 @@ cd "$(pwd -P)"
 export SIF="${SIF}"
 export VJEPA2_ENTRYPOINT_QUIET=1
 
-srun scripts/singularity_exec.sh python scripts/run_training_config.py --fname "${RESOLVED_CONFIG}"
+srun scripts/singularity/singularity_exec.sh python scripts/run_training_config.py --fname "${RESOLVED_CONFIG}"
 SBATCH
 
 echo "Wrote ${JOB_SCRIPT}"

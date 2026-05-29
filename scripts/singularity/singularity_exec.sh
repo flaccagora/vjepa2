@@ -2,7 +2,7 @@
 set -euo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-repo_dir="$(cd -- "${script_dir}/.." && pwd -P)"
+repo_dir="$(cd -- "${script_dir}/../.." && pwd -P)"
 sif="${SIF:-${repo_dir}/vjepa2.sif}"
 
 runtime="${SINGULARITY_BIN:-}"
@@ -76,4 +76,4 @@ exec "${runtime}" exec --nv \
   --pwd "${repo_dir}" \
   "${extra_args[@]}" \
   "${sif}" \
-  bash "${repo_dir}/scripts/singularity_entrypoint.sh" "$@"
+  bash "${repo_dir}/containers/singularity_entrypoint.sh" "$@"
