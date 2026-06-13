@@ -35,3 +35,4 @@ output/
 data/
 checkpoints/
 *.sif
+surgvu_smoke/

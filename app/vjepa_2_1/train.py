@@ -59,6 +59,31 @@ logger = get_logger(__name__, force=True)
 
 _IMAGENET_MEAN = torch.tensor([0.485, 0.456, 0.406], dtype=torch.float32).view(3, 1, 1, 1)
 _IMAGENET_STD = torch.tensor([0.229, 0.224, 0.225], dtype=torch.float32).view(3, 1, 1, 1)
+_DATASET_KWARG_KEYS = (
+    "repo_id",
+    "revision",
+    "cache_dir",
+    "local_repo_root",
+    "local_files_only",
+    "max_episodes",
+    "task_filter",
+    "embodiment_filter",
+    "split_strategy",
+    "split_embodiments",
+    "video_key",
+    "random_video_key",
+    "require_action",
+    "require_state",
+)
+
+
+def _collect_dataset_kwargs(section, base=None):
+    kwargs = copy.deepcopy(base or {})
+    kwargs.update(section.get("dataset_kwargs") or {})
+    for key in _DATASET_KWARG_KEYS:
+        if key in section:
+            kwargs[key] = section.get(key)
+    return kwargs
 
 
 def _fit_pca(tokens, max_tokens):
@@ -217,6 +242,7 @@ def main(args, resume_preempt=False):
     r_file = cfgs_meta.get("read_checkpoint", None)
     seed = cfgs_meta.get("seed", _GLOBAL_SEED)
     save_every_freq = cfgs_meta.get("save_every_freq", -1)
+    save_every_steps = cfgs_meta.get("save_every_steps", -1)
     skip_batches = cfgs_meta.get("skip_batches", -1)
     use_sdpa = cfgs_meta.get("use_sdpa", False)
     sync_gc = cfgs_meta.get("sync_gc", False)
@@ -279,6 +305,7 @@ def main(args, resume_preempt=False):
     batch_size = cfgs_data.get("batch_size")
     tubelet_size = cfgs_data.get("tubelet_size")
     fps = cfgs_data.get("fps")
+    frame_step = cfgs_data.get("frame_step", None)
     crop_size = cfgs_data.get("crop_size", 224)
     patch_size = cfgs_data.get("patch_size")
     grid_size = crop_size // patch_size
@@ -296,6 +323,24 @@ def main(args, resume_preempt=False):
         use_preprocess_metadata = bool(preprocess_metadata)
     length_weighted_sampling = cfgs_data.get("length_weighted_sampling", False)
     video_backend = cfgs_data.get("video_backend", "decord")
+    dataset_kwargs = _collect_dataset_kwargs(cfgs_data)
+
+    # -- VALIDATION DATA
+    cfgs_val = args.get("validation") or {}
+    validation_enabled = bool(cfgs_val.get("enable", False))
+    validation_freq_value = cfgs_val.get("freq", cfgs_meta.get("eval_freq", -1))
+    validation_freq = int(validation_freq_value) if validation_freq_value is not None else -1
+    validation_ipe = int(cfgs_val.get("ipe", 5))
+    validation_dataset_type = cfgs_val.get("dataset_type", dataset_type)
+    validation_dataset_paths = cfgs_val.get("datasets", dataset_paths)
+    validation_dataset_fpcs = cfgs_val.get("dataset_fpcs", dataset_fpcs)
+    validation_batch_size = cfgs_val.get("batch_size", batch_size)
+    validation_fps = cfgs_val.get("fps", fps)
+    validation_frame_step = cfgs_val.get("frame_step", frame_step)
+    validation_num_workers = cfgs_val.get("num_workers", num_workers)
+    validation_dataset_kwargs = _collect_dataset_kwargs(cfgs_val, base=dataset_kwargs)
+    validation_deterministic = cfgs_val.get("deterministic", True)
+    validation_random_clip_sampling = cfgs_val.get("random_clip_sampling", False)
 
     # -- IMG DATA
     cfgs_img_data = args.get("img_data")
@@ -350,6 +395,12 @@ def main(args, resume_preempt=False):
     use_radamw = cfgs_opt.get("use_radamw", False)
     betas = cfgs_opt.get("betas", (0.9, 0.999))
     eps = cfgs_opt.get("eps", 1.0e-8)
+    clip_grad = cfgs_opt.get("clip_grad", None)
+    if clip_grad is not None:
+        clip_grad = float(clip_grad)
+    accum_steps = int(cfgs_opt.get("gradient_accumulation_steps", cfgs_opt.get("accum_steps", 1)))
+    if accum_steps < 1:
+        raise ValueError("optimization.gradient_accumulation_steps must be >= 1")
     loss_reg_std_mult = cfgs_opt.get("loss_reg_std_mult", None)
     loss_reg_num_tracking_steps = cfgs_opt.get("loss_reg_num_tracking_steps", 300)
     loss_reg_min_epoch = cfgs_opt.get("loss_reg_min_epoch", 50)
@@ -526,6 +577,14 @@ def main(args, resume_preempt=False):
         ("%d", "gpu-time(ms)"),
         ("%d", "dataload-time(ms)"),
     )
+    val_csv_logger = None
+    if validation_enabled:
+        val_csv_logger = CSVLogger(
+            os.path.join(folder, f"val_log_r{rank}.csv"),
+            ("%d", "epoch"),
+            ("%d", "itr"),
+            ("%.5f", "loss"),
+        )
 
     # -- init model
     encoder, predictor = init_video_model(
@@ -595,6 +654,7 @@ def main(args, resume_preempt=False):
         training=True,
         # clip_len=clip_len,
         dataset_fpcs=dataset_fpcs,
+        frame_sample_rate=frame_step,
         fps=fps,
         transform=transform,
         rank=data_rank,
@@ -612,6 +672,7 @@ def main(args, resume_preempt=False):
         use_preprocess_metadata=use_preprocess_metadata,
         length_weighted_sampling=length_weighted_sampling,
         video_backend=video_backend,
+        dataset_kwargs=dataset_kwargs,
         log_dir=None,
     )
     try:
@@ -626,7 +687,51 @@ def main(args, resume_preempt=False):
     logger.info(f"Using batch size of {batch_size}, fpcs of {dataset_fpcs}")
     logger.info(f"iterations per epoch/dataset length: {ipe}/{_dlen}")
 
-    # zizi
+    validation_loader = None
+    validation_sampler = None
+    if validation_enabled:
+        if validation_freq <= 0:
+            raise ValueError("validation.freq must be positive when validation.enable is true")
+        validation_dataset_kwargs.setdefault("split", "val")
+        validation_mask_collator = MaskCollator(
+            cfgs_mask=cfgs_mask,
+            dataset_fpcs=validation_dataset_fpcs,
+            crop_size=crop_size,
+            patch_size=patch_size,
+            tubelet_size=tubelet_size,
+        )
+        validation_loader, validation_sampler = init_data(
+            data=validation_dataset_type,
+            root_path=validation_dataset_paths,
+            batch_size=validation_batch_size,
+            training=False,
+            dataset_fpcs=validation_dataset_fpcs,
+            frame_sample_rate=validation_frame_step,
+            fps=validation_fps,
+            transform=transform,
+            rank=data_rank,
+            world_size=data_world_size,
+            datasets_weights=None,
+            collator=validation_mask_collator,
+            num_workers=validation_num_workers,
+            pin_mem=pin_mem,
+            persistent_workers=persistent_workers,
+            deterministic=validation_deterministic,
+            random_clip_sampling=validation_random_clip_sampling,
+            filter_short_videos=filter_short_videos,
+            filter_long_videos=filter_long_videos,
+            preprocess_metadata=preprocess_metadata,
+            use_preprocess_metadata=use_preprocess_metadata,
+            length_weighted_sampling=False,
+            video_backend=video_backend,
+            dataset_kwargs=validation_dataset_kwargs,
+            log_dir=None,
+        )
+        try:
+            _vlen = len(validation_loader)
+        except Exception:
+            _vlen = -1
+        logger.info(f"validation iterations per run/dataset length: {validation_ipe}/{_vlen}")
 
     # -- init optimizer and scheduler
     optimizer, scaler, scheduler, wd_scheduler = init_opt(
@@ -691,6 +796,127 @@ def main(args, resume_preempt=False):
                 wd_scheduler.step()
                 next(momentum_scheduler)
                 mask_collator.step()
+
+    def unpack_jepa_sample(sample):
+        all_clips, all_masks_enc, all_masks_pred = [], [], []
+        for fpc_sample in sample:
+            udata, masks_enc, masks_pred = fpc_sample
+            all_clips += [udata[0][0].to(device, non_blocking=True)]
+            all_masks_enc += [[m.to(device, non_blocking=True) for m in masks_enc]]
+            all_masks_pred += [[m.to(device, non_blocking=True) for m in masks_pred]]
+        return all_clips, all_masks_enc, all_masks_pred
+
+    def forward_target(c, embed_dim=embed_dim_encoder):
+        with torch.no_grad():
+            h = target_encoder(c, gram_mode=False, training_mode=True)
+            new_h = []
+            for hi in h:
+                if levels_predictor > 1:
+                    hi_0 = F.layer_norm(hi[:, :, :embed_dim], (embed_dim,))
+                    hi_1 = F.layer_norm(hi[:, :, embed_dim : embed_dim * 2], (embed_dim,))
+                    hi_2 = F.layer_norm(hi[:, :, embed_dim * 2 : embed_dim * 3], (embed_dim,))
+                    hi_3 = F.layer_norm(hi[:, :, -embed_dim:], (embed_dim,))
+                    hi_norm = torch.cat([hi_0, hi_1, hi_2, hi_3], dim=2)
+                    new_h.append(hi_norm)
+                else:
+                    new_h.append(F.layer_norm(hi, (hi.size(-1),)))
+            return new_h
+
+    def forward_context(clips, masks_enc, masks_pred, embed_dim=embed_dim_encoder):
+        modality = "video"
+        if img_temporal_dim_size is not None:
+            if clips[0].shape[2] == img_temporal_dim_size:
+                modality = "image"
+        z = encoder(clips, masks_enc, gram_mode=False, training_mode=True)
+        z_pred, z_context = predictor(z, masks_enc, masks_pred, mod=modality)
+        if normalize_predictor:
+            z_pred = normalize_nested(z_pred, embed_dim)
+
+            if predict_all:
+                z_context = normalize_nested(z_context, embed_dim)
+        return z_pred, z_context
+
+    def jepa_loss_fn(z, h, masks_to_apply, cls_loss, d_weights):
+        if cls_loss:
+            h_cls = [hi[:, 0].unsqueeze(1) for hi in h]
+            h = [apply_masks(hi[:, 1:], mi, concat=False) for hi, mi in zip(h, masks_to_apply)]
+            loss, n = 0, 0
+            for zi, hi, hi_cls in zip(z, h, h_cls):
+                for zij, hij in zip(zi, hi):
+                    h_term = torch.cat([hi_cls, hij], dim=1)
+                    loss += torch.mean(torch.abs(zij - h_term) ** loss_exp) / loss_exp
+                    n += 1
+
+            loss /= n
+            return loss
+
+        h = [apply_masks(hi, mi, concat=False) for hi, mi in zip(h, masks_to_apply)]
+
+        if d_weights is not None:
+            loss, n = 0, 0
+            for zi, hi, d_i in zip(z, h, d_weights):
+                for zij, hij, d_ij in zip(zi, hi, d_i):
+                    loss_n = torch.abs(zij - hij) ** loss_exp * (1 / d_ij.unsqueeze(2))
+                    loss += torch.mean(loss_n) / loss_exp
+                    n += 1
+            loss /= n
+            return loss
+
+        loss, n = 0, 0
+        for zi, hi in zip(z, h):
+            for zij, hij in zip(zi, hi):
+                loss += torch.mean(torch.abs(zij - hij) ** loss_exp) / loss_exp
+                n += 1
+        loss /= n
+        return loss
+
+    def compute_jepa_loss(clips, masks_enc, masks_pred, global_step):
+        with torch.cuda.amp.autocast(dtype=dtype, enabled=mixed_precision):
+            h = forward_target(clips)
+            z_pred, z_context = forward_context(clips, masks_enc, masks_pred)
+            loss = jepa_loss_fn(z_pred, h, masks_pred, cls_loss=has_cls_first, d_weights=None)
+
+            if predict_all:
+                distance_weights = compute_mask_distance(masks_pred, masks_enc, grid_size, offset_context_loss)
+                d_weights = distance_weights if weight_distance_loss else None
+                loss_context = jepa_loss_fn(z_context, h, masks_enc, cls_loss=False, d_weights=d_weights)
+                lambda_value_step = lambda_sched.value(global_step) if lambda_progressive else lambda_value
+                loss += loss_context * lambda_value_step
+        return loss
+
+    def run_validation(epoch, global_step):
+        if validation_loader is None:
+            return None
+        if validation_sampler is not None:
+            validation_sampler.set_epoch(epoch)
+
+        modules = [encoder, predictor, target_encoder]
+        was_training = [module.training for module in modules]
+        for module in modules:
+            module.eval()
+
+        val_meter = AverageMeter()
+        val_loader = iter(validation_loader)
+        with torch.no_grad():
+            for val_itr in range(validation_ipe):
+                try:
+                    val_sample = next(val_loader)
+                except StopIteration:
+                    val_loader = iter(validation_loader)
+                    val_sample = next(val_loader)
+                val_clips, val_masks_enc, val_masks_pred = unpack_jepa_sample(val_sample)
+                val_loss = compute_jepa_loss(val_clips, val_masks_enc, val_masks_pred, global_step)
+                val_meter.update(float(val_loss))
+                if val_csv_logger is not None:
+                    val_csv_logger.log(epoch + 1, val_itr, float(val_loss))
+
+        for module, training in zip(modules, was_training):
+            module.train(training)
+
+        logger.info("validation loss %.3f", val_meter.avg)
+        if wandb_run is not None and rank == 0:
+            wandb_run.log({"val/loss": float(val_meter.avg), "val/epoch": int(epoch + 1)}, step=global_step)
+        return val_meter.avg
 
     def save_checkpoint(epoch, path):
         if rank != 0:
@@ -778,146 +1004,29 @@ def main(args, resume_preempt=False):
                 bs, fpc = _fpc_sample[0][-1][0].size()
                 mask_meters[fpc].update(bs / batch_size)
 
-            def load_clips():
-                all_clips, all_masks_enc, all_masks_pred = [], [], []
-                for fpc_sample in sample:
-                    udata, masks_enc, masks_pred = fpc_sample
-                    all_clips += [udata[0][0].to(device, non_blocking=True)]
-                    all_masks_enc += [
-                        [m.to(device, non_blocking=True) for m in masks_enc]
-                    ]
-                    all_masks_pred += [
-                        [m.to(device, non_blocking=True) for m in masks_pred]
-                    ]
-                return all_clips, all_masks_enc, all_masks_pred
-
-            clips, masks_enc, masks_pred = load_clips()
+            clips, masks_enc, masks_pred = unpack_jepa_sample(sample)
             data_elapsed_time_ms = (time.time() - itr_start_time) * 1000.0
 
             if sync_gc and (itr + 1) % GARBAGE_COLLECT_ITR_FREQ == 0:
                 logger.info("Running garbage collection...")
                 gc.collect()
 
+            global_step = epoch * ipe + itr
+
             def train_step():
-                _new_lr = scheduler.step()
-                _new_wd = wd_scheduler.step()
-
-                def forward_target(c, embed_dim=embed_dim_encoder):
-                    with torch.no_grad():
-                        h = target_encoder(c, gram_mode=False, training_mode=True)
-                        new_h = []
-                        for hi in h:
-                            if levels_predictor > 1:
-                                hi_0 = F.layer_norm(hi[:, :, :embed_dim], (embed_dim,))
-                                hi_1 = F.layer_norm(
-                                    hi[:, :, embed_dim : embed_dim * 2],
-                                    (embed_dim,),
-                                )
-                                hi_2 = F.layer_norm(
-                                    hi[:, :, embed_dim * 2 : embed_dim * 3],
-                                    (embed_dim,),
-                                )
-                                hi_3 = F.layer_norm(hi[:, :, -embed_dim:], (embed_dim,))
-                                hi_norm = torch.cat([hi_0, hi_1, hi_2, hi_3], dim=2)
-                                new_h.append(hi_norm)
-                            else:
-                                new_h.append(F.layer_norm(hi, (hi.size(-1),)))
-                        return new_h
-
-                def forward_context(clips, embed_dim=embed_dim_encoder):
-                    modality = "video"
-                    if img_temporal_dim_size is not None:
-                        if clips[0].shape[2] == img_temporal_dim_size:
-                            modality = "image"
-                    z = encoder(clips, masks_enc, gram_mode=False, training_mode=True)
-                    z_pred, z_context = predictor(
-                        z, masks_enc, masks_pred, mod=modality
-                    )
-                    if normalize_predictor:
-                        z_pred = normalize_nested(z_pred, embed_dim)
-
-                        if predict_all:
-                            z_context = normalize_nested(z_context, embed_dim)
-                    return z_pred, z_context
-
-                def loss_fn(z, h, masks_to_apply, cls_loss, d_weights):
-                    if cls_loss:
-                        h_cls = [hi[:, 0].unsqueeze(1) for hi in h]
-                        h = [
-                            apply_masks(hi[:, 1:], mi, concat=False)
-                            for hi, mi in zip(h, masks_to_apply)
-                        ]
-                        loss, n = 0, 0
-                        for zi, hi, hi_cls in zip(z, h, h_cls):
-                            for zij, hij in zip(zi, hi):
-                                h_term = torch.cat([hi_cls, hij], dim=1)
-                                loss += (
-                                    torch.mean(torch.abs(zij - h_term) ** loss_exp)
-                                    / loss_exp
-                                )
-                                n += 1
-
-                        loss /= n
-                        return loss
-                    else:
-                        h = [
-                            apply_masks(hi, mi, concat=False)
-                            for hi, mi in zip(h, masks_to_apply)
-                        ]
-
-                        if d_weights is not None:
-                            loss, n = 0, 0
-                            for zi, hi, d_i in zip(z, h, d_weights):
-                                for zij, hij, d_ij in zip(zi, hi, d_i):
-                                    loss_n = torch.abs(zij - hij) ** loss_exp * (
-                                        1 / d_ij.unsqueeze(2)
-                                    )
-                                    loss += torch.mean(loss_n) / loss_exp
-                                    n += 1
-                            loss /= n
-                            return loss
-                        else:
-                            loss, n = 0, 0
-                            for zi, hi in zip(z, h):
-                                for zij, hij in zip(zi, hi):
-                                    loss += (
-                                        torch.mean(torch.abs(zij - hij) ** loss_exp)
-                                        / loss_exp
-                                    )
-                                    n += 1
-                            loss /= n
-                            return loss
+                should_update = ((itr + 1) % accum_steps == 0) or (itr == ipe - 1)
+                _new_lr = optimizer.param_groups[0].get("lr", lr)
+                _new_wd = optimizer.param_groups[0].get("weight_decay", wd)
+                if should_update:
+                    _new_lr = scheduler.step()
+                    _new_wd = wd_scheduler.step()
 
                 # Step 1. Forward
-                with torch.cuda.amp.autocast(dtype=dtype, enabled=mixed_precision):
-                    h = forward_target(clips)
-                    z_pred, z_context = forward_context(clips)
-                    loss = 0
-                    loss_pred = loss_fn(
-                        z_pred, h, masks_pred, cls_loss=has_cls_first, d_weights=None
-                    )
-                    loss += loss_pred
-
-                    # Context loss
-                    if predict_all:
-                        distance_weights = compute_mask_distance(
-                            masks_pred, masks_enc, grid_size, offset_context_loss
-                        )
-                        if weight_distance_loss:
-                            d_weights = distance_weights
-                        else:
-                            d_weights = None
-                        loss_context = loss_fn(
-                            z_context, h, masks_enc, cls_loss=False, d_weights=d_weights
-                        )
-                        if lambda_progressive:
-                            lambda_value_step = lambda_sched.value(epoch * ipe + itr)
-                        else:
-                            lambda_value_step = lambda_value
-                        loss += loss_context * lambda_value_step
+                loss = compute_jepa_loss(clips, masks_enc, masks_pred, global_step)
 
                 # Step 2. Backward & step
                 run_step = True
+                grad_norm = -1.0
                 if loss_reg_std_mult is not None:
                     meanval = np.mean(trailing_losses)
                     stdval = np.std(trailing_losses)
@@ -935,36 +1044,47 @@ def main(args, resume_preempt=False):
                         )
 
                 if run_step:
+                    scaled_loss = loss / accum_steps
                     if mixed_precision:
-                        scaler.scale(loss).backward()
-                        scaler.unscale_(optimizer)
+                        scaler.scale(scaled_loss).backward()
                     else:
-                        loss.backward()
-                    if mixed_precision:
-                        scaler.step(optimizer)
-                        scaler.update()
-                    else:
-                        optimizer.step()
-                optimizer.zero_grad()
+                        scaled_loss.backward()
+                    if should_update:
+                        if mixed_precision:
+                            scaler.unscale_(optimizer)
+                        if clip_grad is not None and clip_grad > 0:
+                            grad_norm = float(
+                                torch.nn.utils.clip_grad_norm_(
+                                    list(encoder.parameters()) + list(predictor.parameters()),
+                                    max_norm=clip_grad,
+                                )
+                            )
+                        if mixed_precision:
+                            scaler.step(optimizer)
+                            scaler.update()
+                        else:
+                            optimizer.step()
+                        optimizer.zero_grad()
 
-                # Step 3. momentum update of target encoder
-                m = min(next(momentum_scheduler), ema[1])
-                with torch.no_grad():
-                    params_k = []
-                    params_q = []
-                    for param_q, param_k in zip(
-                        encoder.parameters(), target_encoder.parameters()
-                    ):
-                        params_k.append(param_k)
-                        params_q.append(param_q)
-                    torch._foreach_mul_(params_k, m)
-                    torch._foreach_add_(params_k, params_q, alpha=1 - m)
+                # Step 3. momentum update of target encoder after optimizer updates
+                if should_update:
+                    m = min(next(momentum_scheduler), ema[1])
+                    with torch.no_grad():
+                        params_k = []
+                        params_q = []
+                        for param_q, param_k in zip(encoder.parameters(), target_encoder.parameters()):
+                            params_k.append(param_k)
+                            params_q.append(param_q)
+                        torch._foreach_mul_(params_k, m)
+                        torch._foreach_add_(params_k, params_q, alpha=1 - m)
 
                 return (
                     float(loss),
                     _new_lr,
                     _new_wd,
                     run_step,
+                    grad_norm,
+                    should_update,
                 )
 
             (
@@ -972,6 +1092,8 @@ def main(args, resume_preempt=False):
                 _new_lr,
                 _new_wd,
                 run_step,
+                grad_norm,
+                optimizer_updated,
             ), gpu_etime_ms = gpu_timer(train_step)
             iter_elapsed_time_ms = (time.time() - itr_start_time) * 1000.0
             loss_meter.update(loss)
@@ -1079,6 +1201,10 @@ def main(args, resume_preempt=False):
                         "perf/gpu_ms": float(gpu_time_meter.avg),
                         "perf/data_ms": float(data_elapsed_time_meter.avg),
                     }
+                    if grad_norm >= 0:
+                        metrics["opt/grad_norm"] = float(grad_norm)
+                    metrics["opt/optimizer_updated"] = int(optimizer_updated)
+                    metrics["opt/gradient_accumulation_steps"] = int(accum_steps)
                     if torch.cuda.is_available():
                         metrics["perf/max_mem_mb"] = float(
                             torch.cuda.max_memory_allocated() / 1024.0**2
@@ -1088,6 +1214,11 @@ def main(args, resume_preempt=False):
                     wandb_run.log(metrics, step=global_step)
 
             log_stats()
+            if validation_enabled and (global_step + 1) % validation_freq == 0:
+                run_validation(epoch, global_step)
+            if save_every_steps > 0 and (global_step + 1) % save_every_steps == 0:
+                save_every_path = os.path.join(folder, f"step{global_step + 1}.pth.tar")
+                save_checkpoint(epoch + 1, save_every_path)
             assert not np.isnan(loss), "loss is nan"
 
         # -- Save Checkpoint

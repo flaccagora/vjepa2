@@ -1,0 +1,194 @@
+app: vjepa_2_1
+nodes: 1
+tasks_per_node: 1
+cpus_per_task: 8
+mem_per_gpu: 48G
+folder: output/physicalai_openh/vjepa2_1_vitb_384px_16f_full_ft
+data:
+  dataset_type: PhysicalAIOpenH
+  repo_id: nvidia/PhysicalAI-Robotics-Open-H-Embodiment
+  # Set this on both login and compute nodes, e.g.
+  # export PHYSICALAI_OPENH_CACHE=/shared/datasets/physicalai-openh
+  cache_dir: ${PHYSICALAI_OPENH_CACHE}
+  local_files_only: true
+  revision: main
+  max_episodes: null
+  task_filter: null
+  embodiment_filter: null
+  # These roots are metadata-only discovery roots in the HF dataset repo.
+  # For offline training, prepare these roots into data.cache_dir first.
+  datasets:
+  - Surgical
+  - Ultrasound
+  - Endoscopy
+  batch_size: 2
+  crop_size: 384
+  patch_size: 16
+  dataset_fpcs:
+  - 16
+  tubelet_size: 2
+  fps: null
+  frame_step: 4
+  filter_short_videos: false
+  num_workers: 8
+  persistent_workers: true
+  pin_mem: true
+  deterministic: true
+  dataset_kwargs:
+    split: train
+    discover_roots: true
+    max_discovery_depth: 8
+    # split_strategy: metadata uses declared LeRobot splits; episode ignores
+    # metadata and hashes episodes; embodiment holds out full robot_type groups.
+    split_strategy: metadata
+    split_embodiments: null
+    # Null selects a declared RGB-like view from each leaf. Set a concrete
+    # feature key, e.g. observation.images.endoscope, to force one view.
+    video_key: null
+    random_video_key: false
+    require_action: false
+    require_state: false
+data_aug:
+  auto_augment: false
+  motion_shift: false
+  random_resize_aspect_ratio:
+  - 0.75
+  - 1.35
+  random_resize_scale:
+  - 0.5
+  - 1.0
+  eval_resize_aspect_ratio:
+  - 1.0
+  - 1.0
+  eval_resize_scale:
+  - 1.0
+  - 1.0
+  reprob: 0.0
+loss:
+  loss_exp: 1.0
+  predict_all: true
+  reg_coeff: 0.0
+  shift_by_n: 0
+  weight_distance_loss: true
+mask:
+- aspect_ratio:
+  - 0.75
+  - 1.5
+  full_complement: false
+  max_keep: null
+  max_temporal_keep: 1.0
+  num_blocks: 8
+  spatial_scale:
+  - 0.15
+  - 0.15
+  temporal_scale:
+  - 1.0
+  - 1.0
+- aspect_ratio:
+  - 0.75
+  - 1.5
+  full_complement: false
+  max_keep: null
+  max_temporal_keep: 1.0
+  num_blocks: 2
+  spatial_scale:
+  - 0.7
+  - 0.7
+  temporal_scale:
+  - 1.0
+  - 1.0
+meta:
+  dtype: bfloat16
+  eval_freq: 500
+  load_checkpoint: true
+  read_checkpoint: checkpoints/vjepa2_1_vitb_dist_vitG_384.pt
+  save_every_freq: 1
+  save_every_steps: 1000
+  seed: 239
+  use_sdpa: true
+model:
+  compile_model: false
+  has_cls_first: false
+  img_temporal_dim_size: 1
+  interpolate_rope: true
+  is_causal: false
+  lambda_progressive: true
+  lambda_value_img: 0.5
+  lambda_value_vid: 0.5
+  local_window:
+  - -1
+  - -1
+  - -1
+  modality_embedding: true
+  model_name: vit_base
+  n_registers: 0
+  n_registers_predictor: 0
+  normalize_predictor: false
+  pred_depth: 12
+  pred_embed_dim: 384
+  pred_is_causal: false
+  pred_local_window:
+  - -1
+  - -1
+  - -1
+  pred_num_heads: 12
+  uniform_power: true
+  use_activation_checkpointing: true
+  use_mask_tokens: true
+  use_rope: true
+  vit_conv: false
+  zero_init_mask_tokens: true
+optimization:
+  clip_grad: 1.0
+  gradient_accumulation_steps: 1
+  ema:
+  - 0.99925
+  - 0.99925
+  epochs: 10
+  final_lr: 1.0e-06
+  final_weight_decay: 0.04
+  ipe: 1000
+  ipe_scale: 1.25
+  lr: 1.0e-05
+  start_lr: 1.0e-06
+  warmup: 2
+  weight_decay: 0.04
+validation:
+  enable: true
+  freq: 500
+  ipe: 20
+  dataset_type: PhysicalAIOpenH
+  datasets:
+  - Surgical
+  - Ultrasound
+  - Endoscopy
+  batch_size: 2
+  dataset_fpcs:
+  - 16
+  fps: null
+  frame_step: 4
+  num_workers: 4
+  random_clip_sampling: false
+  deterministic: true
+  dataset_kwargs:
+    split: val
+    split_strategy: metadata
+    split_embodiments: null
+    discover_roots: true
+    max_discovery_depth: 8
+    max_episodes: 256
+wandb:
+  enable: false
+  project: vjepa2
+  name: physicalai-openh-vjepa2-1-vitb-full-ft
+  mode: online
+  log_freq: 20
+  strict: false
+  pca:
+    enable: false
+    log_freq: 500
+    max_samples: 1
+    max_pca_tokens: 50000
+    encoder: target_encoder
+    overlay: false
+    alpha: 0.55

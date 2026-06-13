@@ -42,6 +42,7 @@ def init_data(
     use_preprocess_metadata=False,
     length_weighted_sampling=False,
     video_backend="decord",
+    dataset_kwargs=None,
 ):
     if data.lower() == "imagenet":
         from src.datasets.imagenet1k import make_imagenet1k
@@ -93,6 +94,33 @@ def init_data(
             use_preprocess_metadata=use_preprocess_metadata,
             length_weighted_sampling=length_weighted_sampling,
             video_backend=video_backend,
+        )
+
+    elif data.lower() in {"physicalaiopenh", "physicalai-robotics-open-h-embodiment"}:
+        from src.datasets.physicalai_openh import make_physicalai_openh
+
+        dataset, data_loader, dist_sampler = make_physicalai_openh(
+            data_paths=root_path,
+            batch_size=batch_size,
+            frames_per_clip=clip_len,
+            dataset_fpcs=dataset_fpcs,
+            frame_step=frame_sample_rate,
+            duration=duration,
+            fps=fps,
+            num_clips=num_clips,
+            random_clip_sampling=random_clip_sampling,
+            filter_short_videos=filter_short_videos,
+            transform=transform,
+            collator=collator,
+            drop_last=drop_last,
+            num_workers=num_workers,
+            pin_mem=pin_mem,
+            persistent_workers=persistent_workers,
+            world_size=world_size,
+            rank=rank,
+            deterministic=deterministic,
+            num_batches_per_epoch=num_batches_per_epoch,
+            dataset_kwargs=dataset_kwargs,
         )
 
     return (data_loader, dist_sampler)
