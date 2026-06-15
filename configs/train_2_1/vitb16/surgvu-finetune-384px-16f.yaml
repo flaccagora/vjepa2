@@ -113,10 +113,10 @@ optimization:
   ema:
   - 0.99925
   - 0.99925
-  epochs: 20
+  epochs: 50
   final_lr: 1.0e-06
   final_weight_decay: 0.04
-  ipe: 100
+  ipe: 200
   ipe_scale: 1.25
   lr: 1.0e-05
   start_lr: 1.0e-06

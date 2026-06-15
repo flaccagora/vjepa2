@@ -8,7 +8,7 @@ set -euo pipefail
 #  --limit 100 \
 #  --val-fraction 0.25
 
-python scripts/check_surgvu_manifest.py data/surgvu_full/manifest_train.csv --limit 0
+# python scripts/check_surgvu_manifest.py data/surgvu/manifest_train.csv --limit 0
 
 python -m app.main \
   --fname configs/train_2_1/vitb16/surgvu-finetune-384px-16f.yaml \
