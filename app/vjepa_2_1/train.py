@@ -1038,7 +1038,7 @@ def main(args, resume_preempt=False):
                         > int(0.5 * loss_reg_num_tracking_steps)
                     ):
                         run_step = False
-                        loss.backward()
+                        # loss.backward() shouldn't compute loss for outlier steps, so we skip the backward pass and optimizer step for this iteration
                         logger.info(
                             f"Loss {loss} is above bound {meanval} + {loss_reg_std_mult} * {stdval}. Skipping step."
                         )
