@@ -530,7 +530,7 @@ def rand_augment_transform(config_str, hparams):
         elif key == "w":
             weight_idx = int(val)
         else:
-            assert NotImplementedError
+            raise NotImplementedError
     ra_ops = rand_augment_ops(magnitude=magnitude, hparams=hparams, transforms=transforms)
     choice_weights = None if weight_idx is None else _select_rand_weights(weight_idx)
     return RandAugment(ra_ops, num_layers, choice_weights=choice_weights)
